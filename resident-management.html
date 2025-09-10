@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resident Management</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip System Administrator</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item active" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-resident.html">Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Resident Management</h3>
+          <div class="filters" style="align-items:end;">
+            <label style="flex:1;">
+              <span>Search Residents</span>
+              <input id="res-search" class="input" type="search" placeholder="Search by username, name, or email" />
+            </label>
+            <label>
+              <span>Status Filter</span>
+              <select id="res-status" class="input">
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending Update</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table res-table" style="margin-top:8px;">
+            <div class="t-head t-row">
+              <div>Username</div>
+              <div>Name</div>
+              <div>Email</div>
+              <div>Contact</div>
+              <div>Actions</div>
+            </div>
+            <div class="t-body" id="res-rows"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3 class="section-title">Pending Credential Updates</h3>
+          <div class="table res-table">
+            <div class="t-head t-row">
+              <div>Username</div>
+              <div>Requested Changes</div>
+              <div>Requested At</div>
+              <div>Actions</div>
+            </div>
+            <div class="t-body" id="res-approvals"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal" id="res-edit-modal" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title">Edit Resident</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-grid">
+            <label>
+              <span>First Name</span>
+              <input id="edit-first" class="input" />
+            </label>
+            <label>
+              <span>Last Name</span>
+              <input id="edit-last" class="input" />
+            </label>
+            <label style="grid-column:1/-1;">
+              <span>Email</span>
+              <input id="edit-email" class="input" />
+            </label>
+            <label style="grid-column:1/-1;">
+              <span>Contact Number</span>
+              <input id="edit-contact" class="input" />
+            </label>
+            <label style="grid-column:1/-1;">
+              <span>Address</span>
+              <input id="edit-address" class="input" />
+            </label>
+            <label style="grid-column:1/-1;">
+              <span>Notes</span>
+              <input id="edit-notes" class="input" />
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-close>Cancel</button>
+          <button class="btn btn-primary" id="res-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div class="modal" id="res-reset-modal" hidden>
+      <div class="modal-dialog" style="max-width:480px;">
+        <div class="modal-header">
+          <div class="modal-title">Reset Password</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body">
+          <label style="display:block;">
+            <span>New Password</span>
+            <input id="reset-pass" class="input" type="password" placeholder="New Password" />
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-close>Cancel</button>
+          <button class="btn btn-primary" id="res-reset">Reset Password</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/js/script.js"></script>
+  </body>
+  </html>
+
+

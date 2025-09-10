@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iSagip Responder Dashboard</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app page-enter">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip Barangay Staff</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item active" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-resident.html">Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Emergency Locations Map</h3>
+          <div id="map" class="map-canvas" aria-label="Emergency Locations Map"></div>
+        </section>
+
+        <section class="card">
+          <h3 class="section-title">🚑 Ongoing Emergency Response</h3>
+          <div class="ongoing">
+            <div class="ongoing-illustration" aria-hidden="true">🚑</div>
+            <div class="ongoing-details">
+              <div class="row"><span class="key">Type:</span><span class="val">Medical</span></div>
+              <div class="row"><span class="key">Location:</span><span class="val">Block 1, Lot 2</span></div>
+              <div class="row"><span class="key">Description:</span><span class="val">Elderly person experiencing chest pain</span></div>
+              <div class="row"><span class="key">Status:</span><span class="val">Ongoing</span></div>
+              <div class="row"><span class="key">Reported At:</span><span class="val" id="reported-at"></span></div>
+              <div class="eta">Estimated Time of Arrival: <strong>5 minutes</strong></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="filters">
+            <label>
+              <span>Filter</span>
+              <select id="filter-period">
+                <option value="month" selected>Month</option>
+                <option value="week">Week</option>
+                <option value="year">Year</option>
+              </select>
+            </label>
+            <label>
+              <span>Month</span>
+              <select id="filter-month">
+                <option value="0">Jan</option>
+                <option value="1">Feb</option>
+                <option value="2">Mar</option>
+                <option value="3">Apr</option>
+                <option value="4">May</option>
+                <option value="5">Jun</option>
+                <option value="6">Jul</option>
+                <option value="7">Aug</option>
+                <option value="8">Sep</option>
+                <option value="9">Oct</option>
+                <option value="10">Nov</option>
+                <option value="11">Dec</option>
+              </select>
+            </label>
+            <label>
+              <span>Year</span>
+              <select id="filter-year"></select>
+            </label>
+          </div>
+
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-title">Total Reports (Jan)</div>
+              <div class="stat-value">9</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Type of Emergencies</div>
+              <div class="badges">
+                <span class="badge badge-blue">Medical: 4</span>
+                <span class="badge badge-orange">Fire: 2</span>
+                <span class="badge badge-green">Police: 3</span>
+              </div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Average Response Time</div>
+              <div class="stat-value" id="avg-response">12 min</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Export Data</div>
+              <button class="btn btn-outline" id="export-csv">EXPORT AS CSV</button>
+              <button class="btn btn-secondary" id="test-notification-btn" style="background: #10b981;">Test Notification</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Notification Container -->
+    <div class="notification-container" id="notification-container"></div>
+    
+    <!-- Notification Sound Indicator -->
+    <div class="notification-sound-indicator" id="sound-indicator">
+      🔊 Notification sound played
+    </div>
+
+    <script src="assets/js/script.js"></script>
+    <!-- Replace YOUR_API_KEY with your actual key after this change -->
+    <script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMeYxYAoOmqAcEeCCqtyRHHLDT5vvftJQ&callback=initISagipMap"></script>
+  </body>
+  </html>
+
+

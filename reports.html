@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Received Reports</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app page-enter">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip Barangay Staff</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item active" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-resident.html">Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Emergency Reports Dashboard</h3>
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-title">Total Reports</div>
+              <div class="stat-value" id="r-total">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Average Response Time</div>
+              <div class="stat-value" id="r-avg">0 min</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Resolved Cases</div>
+              <div class="stat-value" id="r-resolved">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Active Cases</div>
+              <div class="stat-value" id="r-active">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Export</div>
+              <button class="btn btn-outline" id="reports-export-csv">EXPORT TO CSV</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" style="overflow:auto;">
+          <h3 class="section-title">Recent Reports</h3>
+          <div class="table reports-table">
+            <div class="t-head t-row">
+              <div>ID</div>
+              <div>Description</div>
+              <div>Status</div>
+              <div>Street</div>
+              <div>Landmark</div>
+              <div>Photo</div>
+              <div>Actions</div>
+              <div>Timestamp</div>
+              <div>Response Time</div>
+              <div>Reported By</div>
+              <div>Closed By</div>
+              <div>Last Updated By</div>
+              <div>Last Updated At</div>
+              <div>Notes</div>
+            </div>
+            <div class="t-body" id="reports-rows"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal" id="modal-details" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title">Report Details</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body" id="details-content"></div>
+        <div class="modal-footer"><button class="btn btn-outline" data-close>Close</button></div>
+      </div>
+    </div>
+
+    <!-- History Modal -->
+    <div class="modal" id="modal-history" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title">Report Edit History</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body">
+          <div class="table">
+            <div class="t-head t-row">
+              <div>Timestamp</div>
+              <div>Username</div>
+              <div>Action</div>
+              <div>Details</div>
+            </div>
+            <div class="t-body" id="history-rows"></div>
+          </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-outline" data-close>Close</button></div>
+      </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div class="notification-container" id="notification-container"></div>
+    
+    <!-- Notification Sound Indicator -->
+    <div class="notification-sound-indicator" id="sound-indicator">
+      🔊 Notification sound played
+    </div>
+
+    <script src="assets/js/script.js"></script>
+  </body>
+</html>
+
+

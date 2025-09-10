@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app page-enter">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Reports</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <main style="padding:20px; max-width:100%; margin:0 auto;">
+      <div class="reports-viewing-header">
+        <div>
+          <h1 class="title" style="margin: 0 0 4px 0;">Live Reports Viewing</h1>
+          <p style="margin: 0; color: var(--muted); font-size: 14px;">Real-time emergency reports monitoring</p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span class="live-text">Live Updates</span>
+          </div>
+          <button class="btn btn-secondary" id="test-notification-btn" style="background: #10b981; font-size: 12px; padding: 8px 12px;">Test Notification</button>
+        </div>
+      </div>
+      
+      <div class="card" style="padding:16px; margin-bottom:16px;">
+        <div style="position:relative; display:flex; gap:10px; align-items:center;">
+          <div style="position:relative; flex:1;">
+            <input id="report-search" class="input" type="search" placeholder="Search reports by ID, type, description, or reporter..." style="padding-left:40px;" />
+            <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted);">🔍</span>
+          </div>
+          <button id="reset-columns" class="btn btn-secondary">Reset Column Widths</button>
+        </div>
+      </div>
+
+      <section class="card reports-viewing" style="padding:0; overflow:hidden;">
+        <div class="table">
+          <div class="t-head t-row">
+            <div>Report ID</div>
+            <div>Type</div>
+            <div>Description</div>
+            <div>Status</div>
+            <div>Street</div>
+            <div>Landmark</div>
+            <div>Photo</div>
+            <div>Location</div>
+            <div>Reported By</div>
+            <div>Timestamp</div>
+          </div>
+
+          <div class="t-body" id="report-rows">
+            <!-- rows injected by JS -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Notification Container -->
+    <div class="notification-container" id="notification-container"></div>
+    
+    <!-- Notification Sound Indicator -->
+    <div class="notification-sound-indicator" id="sound-indicator">
+      🔊 Notification sound played
+    </div>
+
+    <script src="assets/js/script.js"></script>
+    <script>
+      (function(){
+        // ========================================
+        // Constants for easy maintenance
+        // ========================================
+        var COLUMN_MIN_WIDTH = 80;    // px
+        var COLUMN_MAX_WIDTH = 400;   // px
+        var DEFAULT_COLUMN_WIDTHS = [150, 100, 250, 120, 160, 180, 120, 160, 130, 180];
+
+        // Demo data (replace with backend feed)
+        var data = [
+          { id: 'REP-2024-002', type: 'Fire', desc: 'Kitchen fire, smoke visible', status: 'Relayed', street: 'Block 3,\nLot 5', landmark: 'Beside Barangay\nHall', photo: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop', location: 'Block 3,\nLot 5', by: 'Alice', time: '2024-03-20 10:15 AM' },
+          { id: 'REP-2024-003', type: 'Police', desc: 'Suspicious activity reported', status: 'Pending', street: 'Block 2,\nLot 1', landmark: 'Near parking Lot', photo: '', location: 'Block 2,\nLot 1', by: 'Bob', time: '2024-03-20 09:45 AM' },
+          { id: 'REP-2024-004', type: 'Medical', desc: 'Child with high fever', status: 'Pending', street: 'Block 4,\nLot 7', landmark: 'Green Gate 2\nfloors house', photo: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=300&h=200&fit=crop', location: 'Block 4,\nLot 7', by: 'Carol', time: '2024-03-21 08:10 AM' }
+        ];
+
+        function createBadge(status){
+          var cls = status === 'Relayed' ? 'badge badge-orange' : 'badge badge-blue';
+          return '<span class="status-badge '+cls+'">'+status+'</span>';
+        }
+
+        /**
+         * Create photo element with responsive sizing
+         * Handles different photo sizes dynamically
+         */
+        function createPhotoElement(photoUrl) {
+          if (!photoUrl || photoUrl === '') {
+            return '<div class="photo-placeholder">No Photo</div>';
+          }
+          
+          // Determine photo size class based on URL parameters or content
+          var sizeClass = 'photo-medium'; // Default
+          
+          // Check URL for size indicators
+          if (photoUrl.includes('w=400') || photoUrl.includes('large')) {
+            sizeClass = 'photo-large';
+          } else if (photoUrl.includes('w=300') || photoUrl.includes('medium')) {
+            sizeClass = 'photo-medium';
+          } else if (photoUrl.includes('w=200') || photoUrl.includes('small')) {
+            sizeClass = 'photo-small';
+          }
+          
+          return '<div class="photo-container">' +
+                   '<img src="' + photoUrl + '" class="' + sizeClass + '" alt="Report Photo" loading="lazy" onload="adjustPhotoSize(this)">' +
+                 '</div>';
+        }
+
+        /**
+         * Adjust photo size based on actual image dimensions
+         * Called when image loads to ensure optimal display
+         */
+        function adjustPhotoSize(img) {
+          var container = img.parentElement;
+          var naturalWidth = img.naturalWidth;
+          var naturalHeight = img.naturalHeight;
+          
+          // Determine size class based on actual dimensions
+          if (naturalWidth > 400 || naturalHeight > 300) {
+            img.className = 'photo-large';
+          } else if (naturalWidth > 300 || naturalHeight > 200) {
+            img.className = 'photo-medium';
+          } else {
+            img.className = 'photo-small';
+          }
+        }
+
+        /**
+         * Initialize column resizing functionality
+         * Allows users to drag column borders to resize columns
+         */
+        function initializeColumnResizing() {
+          var rows = document.querySelectorAll('.reports-viewing .t-row');
+          if (rows.length === 0) return;
+
+          var headerRow = rows[0]; // First row is the header
+          var cells = headerRow.querySelectorAll('div');
+          
+          // Remove existing event listeners
+          cells.forEach(function(cell, index) {
+            if (index < cells.length - 1) { // Not the last column
+              var newCell = cell.cloneNode(true);
+              cell.parentNode.replaceChild(newCell, cell);
+            }
+          });
+
+          // Re-query cells after cloning
+          cells = headerRow.querySelectorAll('div');
+          
+          cells.forEach(function(cell, index) {
+            if (index < cells.length - 1) { // Not the last column
+              cell.addEventListener('mousedown', function(e) {
+                if (e.target === cell || e.target.parentElement === cell) {
+                  startResize(e, index);
+                }
+              });
+            }
+          });
+        }
+
+        /**
+         * Start column resizing process
+         */
+        function startResize(e, columnIndex) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          var startX = e.clientX;
+          var startWidth = parseInt(window.getComputedStyle(e.target).width, 10);
+          var isResizing = false;
+          
+          // Add resizing class to all cells in this column
+          var allRows = document.querySelectorAll('.reports-viewing .t-row');
+          allRows.forEach(function(row) {
+            var cell = row.children[columnIndex];
+            if (cell) cell.classList.add('resizing');
+          });
+
+          function doResize(e) {
+            if (!isResizing) {
+              isResizing = true;
+              document.body.style.cursor = 'col-resize';
+              document.body.style.userSelect = 'none';
+            }
+            
+            var newWidth = startWidth + (e.clientX - startX);
+            if (newWidth < COLUMN_MIN_WIDTH) newWidth = COLUMN_MIN_WIDTH;
+            if (newWidth > COLUMN_MAX_WIDTH) newWidth = COLUMN_MAX_WIDTH;
+            
+            // Apply new width to all cells in this column
+            allRows.forEach(function(row) {
+              var cell = row.children[columnIndex];
+              if (cell) {
+                cell.style.width = newWidth + 'px';
+                cell.style.minWidth = newWidth + 'px';
+                cell.style.maxWidth = newWidth + 'px';
+              }
+            });
+            
+            // Save column widths to localStorage
+            saveColumnWidths();
+          }
+
+          function stopResize() {
+            isResizing = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            
+            // Remove resizing class
+            allRows.forEach(function(row) {
+              var cell = row.children[columnIndex];
+              if (cell) cell.classList.remove('resizing');
+            });
+            
+            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('mouseup', stopResize);
+          }
+
+          document.addEventListener('mousemove', doResize);
+          document.addEventListener('mouseup', stopResize);
+        }
+
+        /**
+         * Save column widths to localStorage
+         */
+        function saveColumnWidths() {
+          var headerRow = document.querySelector('.reports-viewing .t-row');
+          if (!headerRow) return;
+          
+          var cells = headerRow.querySelectorAll('div');
+          var widths = [];
+          
+          cells.forEach(function(cell) {
+            var width = parseInt(window.getComputedStyle(cell).width, 10);
+            widths.push(width);
+          });
+          
+          localStorage.setItem('iSagip_columnWidths', JSON.stringify(widths));
+        }
+
+        /**
+         * Load column widths from localStorage
+         */
+        function loadColumnWidths() {
+          var savedWidths = localStorage.getItem('iSagip_columnWidths');
+          if (!savedWidths) return;
+          
+          try {
+            var widths = JSON.parse(savedWidths);
+            var allRows = document.querySelectorAll('.reports-viewing .t-row');
+            
+            allRows.forEach(function(row) {
+              var cells = row.querySelectorAll('div');
+              cells.forEach(function(cell, index) {
+                if (widths[index]) {
+                  cell.style.width = widths[index] + 'px';
+                  cell.style.minWidth = widths[index] + 'px';
+                  cell.style.maxWidth = widths[index] + 'px';
+                }
+              });
+            });
+          } catch (e) {
+            console.log('Error loading column widths:', e);
+          }
+        }
+
+        /**
+         * Reset column widths to default values
+         */
+        function resetColumnWidths() {
+          // Default column widths
+          var defaultWidths = DEFAULT_COLUMN_WIDTHS;
+          var allRows = document.querySelectorAll('.reports-viewing .t-row');
+          
+          allRows.forEach(function(row) {
+            var cells = row.querySelectorAll('div');
+            cells.forEach(function(cell, index) {
+              if (defaultWidths[index]) {
+                cell.style.width = defaultWidths[index] + 'px';
+                cell.style.minWidth = defaultWidths[index] + 'px';
+                cell.style.maxWidth = defaultWidths[index] + 'px';
+              }
+            });
+          });
+          
+          // Clear saved widths from localStorage
+          localStorage.removeItem('iSagip_columnWidths');
+          
+          // Show confirmation
+          showNotification('Column widths reset to default', 'success');
+        }
+
+        var container = document.getElementById('report-rows');
+        function renderRows(items){
+          container.innerHTML = items.map(function(r, idx){
+            var delay = (idx % 20) * 25; // stagger up to ~500ms per batch
+            return (
+              '<div class="t-row" style="--stagger:'+delay+'ms">'+
+                '<div class="cell id">'+r.id+'</div>'+
+                '<div class="cell">'+r.type+'</div>'+
+                '<div class="cell">'+r.desc+'</div>'+
+                '<div class="cell">'+createBadge(r.status)+'</div>'+
+                '<div class="cell">'+r.street.replace(/\n/g,'<br>')+'</div>'+
+                '<div class="cell">'+r.landmark.replace(/\n/g,'<br>')+'</div>'+
+                '<div class="cell"><div class="photo">'+createPhotoElement(r.photo)+'</div></div>'+
+                '<div class="cell">'+r.location.replace(/\n/g,'<br>')+'</div>'+
+                '<div class="cell">'+r.by+'</div>'+
+                '<div class="cell">'+r.time+'</div>'+
+              '</div>'
+            );
+          }).join('');
+        }
+
+        renderRows(data);
+
+        // Initialize column resizing functionality
+        initializeColumnResizing();
+        
+        // Load saved column widths
+        setTimeout(function() {
+          loadColumnWidths();
+        }, 100);
+
+        // Reset columns button functionality
+        document.getElementById('reset-columns').addEventListener('click', function() {
+          resetColumnWidths();
+        });
+
+        var search = document.getElementById('report-search');
+        search.addEventListener('input', function(){
+          var q = search.value.toLowerCase();
+          var filtered = data.filter(function(r){
+            return Object.keys(r).some(function(k){ return String(r[k]).toLowerCase().indexOf(q) !== -1; });
+          });
+          renderRows(filtered);
+          // Re-initialize column resizing after re-rendering
+          initializeColumnResizing();
+        });
+
+        // ========================================
+        // NOTIFICATION SYSTEM FOR REPORTS VIEWING
+        // ========================================
+        
+        /**
+         * Initialize notification system for Reports Viewing
+         * Handles new report notifications with sound and visual alerts
+         */
+        function initializeReportsViewingNotifications() {
+          // Initialize notification container
+          initializeNotificationContainer();
+          
+          // Start simulating new reports (for demo purposes)
+          // TODO: Replace with real-time backend integration
+          startReportsViewingSimulation();
+        }
+
+        /**
+         * Initialize notification container and event handlers
+         */
+        function initializeNotificationContainer() {
+          var container = document.getElementById('notification-container');
+          if (!container) return;
+          
+          // Handle notification close events
+          container.addEventListener('click', function(e) {
+            if (e.target.classList.contains('notification-close')) {
+              var notification = e.target.closest('.notification');
+              if (notification) {
+                removeNotification(notification);
+              }
+            }
+          });
+        }
+
+        /**
+         * Show a new report notification for Reports Viewing
+         * @param {Object} reportData - Report data object
+         */
+        function showNewReportNotification(reportData) {
+          var container = document.getElementById('notification-container');
+          if (!container) return;
+          
+          // Create notification element
+          var notification = createNotificationElement(reportData);
+          
+          // Add to container
+          container.appendChild(notification);
+          
+          // Show notification with animation
+          setTimeout(function() {
+            notification.classList.add('show');
+          }, 100);
+          
+          // Play notification sound
+          playNotificationSound();
+          
+          // Show sound indicator
+          showSoundIndicator();
+          
+          // Auto-remove after 10 seconds
+          setTimeout(function() {
+            removeNotification(notification);
+          }, 10000);
+        }
+
+        /**
+         * Create notification element HTML for Reports Viewing
+         * @param {Object} reportData - Report data
+         * @returns {HTMLElement} - Notification element
+         */
+        function createNotificationElement(reportData) {
+          var notification = document.createElement('div');
+          notification.className = 'notification emergency';
+          
+          var currentTime = new Date().toLocaleTimeString();
+          
+          notification.innerHTML = 
+            '<div class="notification-header">' +
+              '<div class="notification-title">🚨 New Emergency Report</div>' +
+              '<button class="notification-close">&times;</button>' +
+            '</div>' +
+            '<div class="notification-body">' +
+              '<strong>Report ID:</strong> ' + reportData.id + '<br>' +
+              '<strong>Type:</strong> ' + reportData.type + '<br>' +
+              '<strong>Description:</strong> ' + reportData.desc + '<br>' +
+              '<strong>Location:</strong> ' + reportData.street.replace(/\n/g, ', ') + '<br>' +
+              '<strong>Reported by:</strong> ' + reportData.by +
+            '</div>' +
+            '<div class="notification-time">' + currentTime + '</div>';
+          
+          return notification;
+        }
+
+        /**
+         * Remove notification with animation
+         * @param {HTMLElement} notification - Notification element to remove
+         */
+        function removeNotification(notification) {
+          notification.classList.remove('show');
+          setTimeout(function() {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 300);
+        }
+
+        /**
+         * Play notification sound
+         * Uses Web Audio API to generate a notification sound
+         */
+        function playNotificationSound() {
+          try {
+            // Create audio context
+            var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create oscillator for notification sound
+            var oscillator = audioContext.createOscillator();
+            var gainNode = audioContext.createGain();
+            
+            // Connect nodes
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Configure sound (emergency notification tone)
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+            
+            // Configure volume
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
+            
+            // Play sound
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+          } catch (error) {
+            console.log('Could not play notification sound:', error);
+          }
+        }
+
+        /**
+         * Show sound indicator
+         * Displays a temporary indicator that sound was played
+         */
+        function showSoundIndicator() {
+          var indicator = document.getElementById('sound-indicator');
+          if (!indicator) return;
+          
+          indicator.classList.add('show');
+          
+          setTimeout(function() {
+            indicator.classList.remove('show');
+          }, 2000);
+        }
+
+        /**
+         * Start report simulation for Reports Viewing demo purposes
+         * TODO: Replace with real-time backend integration
+         */
+        function startReportsViewingSimulation() {
+          // Simulate new reports every 45-75 seconds
+          var simulateNewReport = function() {
+            var mockReports = [
+              {
+                id: 'REP-' + Date.now(),
+                type: 'Fire',
+                desc: 'Kitchen fire, smoke visible',
+                status: 'Pending',
+                street: 'Block 3,\nLot 5',
+                landmark: 'Beside Barangay Hall',
+                photo: '',
+                location: 'Block 3,\nLot 5',
+                by: 'Alice Johnson',
+                time: new Date().toLocaleString()
+              },
+              {
+                id: 'REP-' + Date.now(),
+                type: 'Medical',
+                desc: 'Medical emergency - chest pain',
+                status: 'Pending',
+                street: 'Block 1,\nLot 12',
+                landmark: 'Near main road',
+                photo: '',
+                location: 'Block 1,\nLot 12',
+                by: 'Bob Smith',
+                time: new Date().toLocaleString()
+              },
+              {
+                id: 'REP-' + Date.now(),
+                type: 'Police',
+                desc: 'Suspicious activity reported',
+                status: 'Pending',
+                street: 'Block 2,\nLot 8',
+                landmark: 'Near parking lot',
+                photo: '',
+                location: 'Block 2,\nLot 8',
+                by: 'Carol Davis',
+                time: new Date().toLocaleString()
+              },
+              {
+                id: 'REP-' + Date.now(),
+                type: 'Medical',
+                desc: 'Child with high fever',
+                status: 'Pending',
+                street: 'Block 4,\nLot 3',
+                landmark: 'Green gate house',
+                photo: '',
+                location: 'Block 4,\nLot 3',
+                by: 'David Wilson',
+                time: new Date().toLocaleString()
+              }
+            ];
+            
+            // Pick random report
+            var randomReport = mockReports[Math.floor(Math.random() * mockReports.length)];
+            
+            // Show notification
+            showNewReportNotification(randomReport);
+            
+            // Add new report to data array
+            data.unshift(randomReport);
+            
+            // Re-render the table
+            renderRows(data);
+            
+            // Schedule next simulation
+            var nextDelay = Math.random() * 30000 + 45000; // 45-75 seconds
+            setTimeout(simulateNewReport, nextDelay);
+          };
+          
+          // Start first simulation after 15 seconds
+          setTimeout(simulateNewReport, 15000);
+        }
+
+        /**
+         * Initialize test notification button for demo purposes
+         */
+        function initializeTestNotificationButton() {
+          var testBtn = document.getElementById('test-notification-btn');
+          if (!testBtn) return;
+          
+          testBtn.addEventListener('click', function() {
+            // Create a test notification
+            var testReport = {
+              id: 'TEST-' + Date.now(),
+              type: 'Test',
+              desc: 'Test emergency notification',
+              status: 'Pending',
+              street: 'Test Location',
+              landmark: 'Test Landmark',
+              photo: '',
+              location: 'Test Location',
+              by: 'System Test',
+              time: new Date().toLocaleString()
+            };
+            
+            showNewReportNotification(testReport);
+            
+            // Add to data and re-render
+            data.unshift(testReport);
+            renderRows(data);
+          });
+        }
+
+        // Initialize notification system
+        initializeReportsViewingNotifications();
+        
+        // Initialize test button
+        initializeTestNotificationButton();
+      })();
+    </script>
+  </body>
+  </html>
+
+

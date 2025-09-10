@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ambulance Status</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app page-enter">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip Barangay Staff</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item active" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-resident.html">Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Ambulance Status Management</h3>
+          <div class="ambulance-grid" id="ambulance-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="assets/js/script.js"></script>
+  </body>
+  </html>
+
+

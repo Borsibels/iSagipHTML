@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resident Registration</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip System Administrator</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item active" href="#">Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Resident Registration</h3>
+          <form class="form" style="max-width:720px; margin:0 auto;">
+            <div class="form-grid">
+              <label>
+                <span>Username *</span>
+                <input class="input" />
+              </label>
+              <label>
+                <span>Email *</span>
+                <input class="input" />
+              </label>
+              <label>
+                <span>Password *</span>
+                <input class="input" type="password" />
+              </label>
+              <label>
+                <span>Confirm Password *</span>
+                <input class="input" type="password" />
+              </label>
+              <label>
+                <span>First name *</span>
+                <input class="input" />
+              </label>
+              <label>
+                <span>Middle name</span>
+                <input class="input" />
+              </label>
+              <label>
+                <span>Last name *</span>
+                <input class="input" />
+              </label>
+              <label>
+                <span>Gender *</span>
+                <select class="input"><option>Male</option><option>Female</option><option>Prefer not to say</option></select>
+              </label>
+              <label>
+                <span>Birth date *</span>
+                <input class="input" placeholder="mm/dd/yyyy" />
+              </label>
+              <label>
+                <span>Address *</span>
+                <input class="input" />
+              </label>
+              <label>
+                <span>Contact Number *</span>
+                <input class="input" />
+              </label>
+            </div>
+            <div style="margin-top:16px; display:grid; place-items:center;">
+              <button class="btn btn-primary" type="submit">REGISTER</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="assets/js/script.js"></script>
+  </body>
+  </html>
+
+
