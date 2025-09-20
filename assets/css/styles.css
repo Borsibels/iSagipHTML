@@ -1,3 +1,22 @@
+/* ===================================================================
+   iSagip CSS (Vanilla) - Simplified and Documented
+   Purpose: Central styles with clear sections, minimal complexity.
+   Table of Contents:
+   1) Base tokens (colors, typography, resets)
+   2) Generic utilities (buttons, inputs, cards)
+   3) App layout (topbar, sidebar, content)
+   4) Feature blocks (map, ongoing, stats)
+   5) Data tables (reports, resident, reports viewing)
+   6) Components (modal, notifications, toggles)
+   7) Pages (ambulance, settings, registration)
+   8) Dark mode (variables + overrides)
+   9) Animations + accessibility (reduced motion)
+   Notes:
+   - Keep selectors shallow, prefer single-class selectors.
+   - Page-scoped roots like .reports-viewing, .reports-table, .res-table
+     contain styles only for that page to avoid side effects.
+   =================================================================== */
+
 /* Base */
 :root {
   --bg: #f3f6fb;
@@ -173,6 +192,12 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
 
 /* Form Actions */
 .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+
+/* Avatar preview (removed with Personalization UI) */
+
+/* Password strength meter */
+.password-meter { width: 100%; height: 8px; background: #e5e7eb; border-radius: 6px; overflow: hidden; margin-top: 8px; }
+.password-meter-fill { height: 100%; width: 0%; background: #ef4444; transition: width .2s ease, background .2s ease; }
 
 /* Dark Mode Variables */
 [data-theme="dark"] {
@@ -389,7 +414,10 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
 .card:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(2,8,23,0.10); }
 .btn:hover { transform: translateY(-1px); }
 
-/* Page fade transitions */
+/* Page fade transitions
+   Purpose: Consistent enter/leave animations when navigating pages.
+   Match durations with the JS `navigateWithFade` helper (180–300ms).
+*/
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -412,7 +440,9 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
   will-change: transform, opacity;
 }
 
-/* Reduced motion accessibility */
+/* Reduced motion accessibility
+   Honours user OS preference to minimize motion.
+*/
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
   .page-enter, .page-leave { animation: none !important; }
@@ -432,13 +462,22 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
 .reports-viewing .t-body .t-row:nth-child(odd) { background: var(--card); }
 .reports-viewing .t-body .t-row:nth-child(even) { background: rgba(59, 130, 246, 0.02); }
 
-/* Reports Viewing Table Column Alignment - TV Display Optimized (Full Width) */
+/* Reports Viewing Table Column Alignment - TV Display Optimized (Full Width)
+   Rationale:
+   - Uses CSS Grid to define fixed column widths for readability on TV.
+   - JS adds per-row staggered animations and persists user-resized widths.
+*/
 .reports-viewing .t-row { 
   grid-template-columns: 150px 100px 250px 120px 160px 180px 120px 160px 130px 180px; 
   gap: 0; 
   position: relative;
 }
-/* Resizable columns */
+/* Resizable columns
+   Technique:
+   - Each cell sets `resize: horizontal` so users can drag to adjust width.
+   - An ::after pseudo-element creates a wider drag hotspot at the right edge
+     for better usability. JS toggles `.resizing` for visual feedback.
+*/
 .reports-viewing .t-row > div {
   position: relative;
   resize: horizontal;
