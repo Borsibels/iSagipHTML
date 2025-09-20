@@ -10,7 +10,7 @@
     <!-- Top Navigation Bar -->
     <header class="topbar">
         <div class="brand-inline">
-            <img src="iSagipLogo.png" alt="iSagip Logo" class="brand-inline-logo">
+            <img src="public/iSagipLogo.png" alt="iSagip Logo" class="brand-inline-logo">
             <span class="brand-inline-name">iSagip</span>
         </div>
         <div class="topbar-title">Settings</div>
@@ -23,13 +23,13 @@
         <nav class="sidebar">
             <div class="sidebar-brand">iSagip</div>
             <div class="menu" id="sidebar-menu">
-                <a class="menu-item active" href="dashboard.html">Dashboard</a>
+                <a class="menu-item" href="dashboard.html">Dashboard</a>
                 <a class="menu-item" href="reports.html">Reports</a>
                 <a class="menu-item" href="ambulance.html">Ambulance Status</a>
                 <a class="menu-item" href="resident-management.html">Resident Management</a>
                 <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
                 <a class="menu-item" href="register-resident.html">Resident Registration</a>
-                <a class="menu-item" href="settings.html">Settings</a>
+                <a class="menu-item active" href="settings.html" aria-current="page">Settings</a>
             </div>
         </nav>
 
@@ -55,6 +55,65 @@
                                 <input type="checkbox" id="dark-mode-toggle">
                                 <span class="toggle-slider"></span>
                             </label>
+                        </div>
+                    </div>
+                </div>
+
+                
+
+                <!-- Language & Region -->
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h2>Language & Region</h2>
+                        <p>Set your language, time and date preferences</p>
+                    </div>
+
+                    <div class="settings-item">
+                        <div class="settings-item-content" style="width:100%; display:block;">
+                            <div class="form-grid">
+                                <label>
+                                    <span class="label">Language</span>
+                                    <select id="settings-language" class="input">
+                                        <option value="en-PH">English (Philippines)</option>
+                                        <option value="fil-PH">Filipino</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span class="label">Time Format</span>
+                                    <select id="settings-time-format" class="input">
+                                        <option value="12">12-hour</option>
+                                        <option value="24">24-hour</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span class="label">Date Format</span>
+                                    <select id="settings-date-format" class="input">
+                                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span class="label">Timezone</span>
+                                    <select id="settings-timezone" class="input"></select>
+                                </label>
+                                <label style="grid-column: 1 / -1;">
+                                    <span class="label">Default Landing Page</span>
+                                    <select id="settings-default-landing" class="input">
+                                        <option value="dashboard.html">Dashboard</option>
+                                        <option value="reports.html">Reports</option>
+                                        <option value="ambulance.html">Ambulance Status</option>
+                                        <option value="reportsViewing.html">Reports Live Viewing</option>
+                                        <option value="register-staff.html">Barangay Staff Registration</option>
+                                        <option value="register-resident.html">Resident Registration</option>
+                                        <option value="resident-management.html">Resident Management</option>
+                                        <option value="settings.html">Settings</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-primary" id="save-locale-btn">Save Preferences</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -111,6 +170,12 @@
                     
                     <label class="label" for="new-password">New Password</label>
                     <input id="new-password" class="input" type="password" placeholder="Enter new password" required>
+                    <div class="password-strength" id="password-strength">
+                        <div class="password-meter"><div id="password-meter-fill" class="password-meter-fill"></div></div>
+                        <div id="password-strength-text" class="muted" style="font-size:12px; margin-top:6px;">Strength: 
+                            <span id="password-strength-label">Weak</span>
+                        </div>
+                    </div>
                     
                     <label class="label" for="confirm-password">Confirm New Password</label>
                     <input id="confirm-password" class="input" type="password" placeholder="Confirm new password" required>
@@ -124,6 +189,7 @@
         </div>
     </div>
 
-    <script src="assets/js/script.js"></script>
+    <script src="assets/js/common.js"></script>
+    <script src="assets/js/settings.js"></script>
 </body>
 </html>
