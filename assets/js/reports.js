@@ -13,8 +13,40 @@
   // small status to colored badge
   function statusBadge(s){ var map={ Pending:'badge-orange', Relayed:'badge-orange', Ongoing:'badge-blue', Responded:'badge-green', Resolved:'badge-green' }; return '<span class="badge '+(map[s]||'badge-blue')+'">'+s+'</span>'; }
 
+  // responders: load from storage or provide simple defaults
+  function getResponders(){
+    try {
+      var staff=JSON.parse(localStorage.getItem('iSagip_staff')||'null');
+      if (Array.isArray(staff) && staff.length){ return staff; }
+    } catch(err){}
+    try {
+      var resp=JSON.parse(localStorage.getItem('iSagip_responders')||'null');
+      if (Array.isArray(resp) && resp.length){ return resp; }
+    } catch(err){}
+    return [ { id:1, name:'Responder 1' }, { id:2, name:'Responder 2' }, { id:3, name:'Responder 3' } ];
+  }
+
+  function responderNameOf(item){ return (item && (item.name||item.fullName||item.username||('Responder '+(item.id||''))))||''; }
+
+  function loadAssignments(){ try { return JSON.parse(localStorage.getItem('iSagip_report_assignments')||'{}'); } catch(e){ return {}; } }
+  function saveAssignments(a){ try { localStorage.setItem('iSagip_report_assignments', JSON.stringify(a||{})); } catch(e){} }
+
+  function responderOptionsHTML(selected){
+    var list=getResponders();
+    var html='<option value="">Choose Responder</option>';
+    for (var i=0;i<list.length;i++){
+      var n=responderNameOf(list[i]);
+      var sel=(selected&&selected===n)?' selected':'';
+      html+='<option'+sel+'>'+n+'</option>';
+    }
+    return html;
+  }
+
   function actionCell(id, status){
+    var assignments=loadAssignments();
+    var selectedResponder=(assignments[id]&&assignments[id].responderName)||'';
     return '<div class="actions">'+
+      '<select class="input responder-select" data-id="'+id+'">'+responderOptionsHTML(selectedResponder)+'</select>'+
       '<select class="input ambulance-select" data-id="'+id+'"><option value="">Choose Ambulance</option><option>Ambulance 1</option><option>Ambulance 2</option><option>Ambulance 3</option></select>'+
       '<button class="btn btn-outline respond-btn" data-id="'+id+'">'+(status==='Ongoing'?'RESPONDED':'ONGOING')+'</button>'+
       '<button class="btn btn-outline view-btn" data-id="'+id+'">VIEW</button>'+
@@ -75,6 +107,14 @@
   });
 
   table.addEventListener('change', function(e){
+    var rs=e.target.closest('.responder-select');
+    if (rs){
+      var rid=rs.getAttribute('data-id'); var rr=reports.find(function(x){return x.id===rid;}); if(!rr) return; var name=rs.value || rs.options[rs.selectedIndex].text;
+      var assigns=loadAssignments(); if(!assigns[rid]) assigns[rid]={}; assigns[rid].responderName=name; saveAssignments(assigns);
+      rr.updatedBy=name; rr.updatedAt=new Date().toLocaleString();
+      renderReportsTable();
+      return;
+    }
     var sel=e.target.closest('.ambulance-select'); if(!sel) return; if(!sel.value) return; var id=sel.getAttribute('data-id'); var r=reports.find(function(x){return x.id===id;}); if(!r) return; var ambName=sel.value || sel.options[sel.selectedIndex].text;
     try {
       var store=JSON.parse(localStorage.getItem('iSagip_ambulances')) || [ { id:1, name:'Ambulance 1', status:'AVAILABLE', location:'' }, { id:2, name:'Ambulance 2', status:'AVAILABLE', location:'' }, { id:3, name:'Ambulance 3', status:'AVAILABLE', location:'' } ];
