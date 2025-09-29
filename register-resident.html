@@ -29,51 +29,63 @@
       <main class="content">
         <section class="card">
           <h3 class="section-title">Resident Registration</h3>
-          <form class="form" style="max-width:720px; margin:0 auto;">
+          <form class="form" id="resident-register-form" style="max-width:720px; margin:0 auto;">
             <div class="form-grid">
               <label>
                 <span>Username *</span>
-                <input class="input" />
+                <input id="res-username" class="input" />
               </label>
               <label>
                 <span>Email *</span>
-                <input class="input" />
+                <input id="res-email" class="input" />
               </label>
               <label>
                 <span>Password *</span>
-                <input class="input" type="password" />
+                <input id="res-password" class="input" type="password" />
               </label>
               <label>
                 <span>Confirm Password *</span>
-                <input class="input" type="password" />
+                <input id="res-password2" class="input" type="password" />
               </label>
               <label>
                 <span>First name *</span>
-                <input class="input" />
+                <input id="res-first" class="input" />
               </label>
               <label>
                 <span>Middle name</span>
-                <input class="input" />
+                <input id="res-middle" class="input" />
               </label>
               <label>
                 <span>Last name *</span>
-                <input class="input" />
+                <input id="res-last" class="input" />
+              </label>
+              <label>
+                <span>Suffix</span>
+                <input id="res-suffix" class="input" placeholder="Jr., Sr., III (optional)" />
               </label>
               <label>
                 <span>Gender *</span>
-                <select class="input"><option>Male</option><option>Female</option><option>Prefer not to say</option></select>
+                <select id="res-gender" class="input"><option>Male</option><option>Female</option><option>Prefer not to say</option></select>
               </label>
               <label>
                 <span>Birth date *</span>
-                <input class="input" placeholder="mm/dd/yyyy" />
+                <input id="res-birth" class="input" type="date" />
               </label>
               <label>
                 <span>Address *</span>
-                <input class="input" />
+                <input id="res-address" class="input" />
               </label>
               <label>
                 <span>Contact Number *</span>
-                <input class="input" />
+                <input id="res-contact" class="input" />
+              </label>
+              <label style="grid-column:1/-1;">
+                <span>Attach Photo</span>
+                <input id="res-photo" class="input" type="file" accept="image/*" />
+              </label>
+              <label style="grid-column:1/-1;">
+                <span>Attach Valid ID</span>
+                <input id="res-validid" class="input" type="file" accept="image/*" />
               </label>
             </div>
             <div style="margin-top:16px; display:grid; place-items:center;">
@@ -85,6 +97,7 @@
     </div>
 
     <script src="assets/js/common.js"></script>
+    <script src="assets/js/register-resident.js"></script>
   </body>
   </html>
 

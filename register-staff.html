@@ -78,12 +78,16 @@
                 <input id="reg-last" class="input" />
               </label>
               <label>
+                <span>Suffix</span>
+                <input id="reg-suffix" class="input" placeholder="Jr., Sr., III (optional)" />
+              </label>
+              <label>
                 <span>Age *</span>
                 <input id="reg-age" class="input" />
               </label>
               <label>
                 <span>Birth date *</span>
-                <input id="reg-birth" class="input" placeholder="mm/dd/yyyy" />
+                <input id="reg-birth" class="input" type="date" />
               </label>
               <label>
                 <span>Contact Number *</span>
@@ -92,6 +96,14 @@
               <label style="grid-column:1/-1;">
                 <span>Address *</span>
                 <input id="reg-address" class="input" />
+              </label>
+              <label style="grid-column:1/-1;">
+                <span>Attach Photo</span>
+                <input id="reg-photo" class="input" type="file" accept="image/*" />
+              </label>
+              <label style="grid-column:1/-1;">
+                <span>Attach Valid ID</span>
+                <input id="reg-validid" class="input" type="file" accept="image/*" />
               </label>
             </div>
             <div style="margin-top:16px; display:grid; place-items:center;">

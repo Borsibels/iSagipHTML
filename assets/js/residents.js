@@ -20,7 +20,7 @@
   var pendingUpdates=load('iSagip_pending_updates', null) || [ { username:'john_doe', changes:{ email:'john.new@example.com', contact:'1112223333' }, requestedAt:'2025-09-10 09:15 PM' } ];
   save('iSagip_pending_updates', pendingUpdates);
 
-  function fullName(r){ return r.first+' '+r.last; }
+  function fullName(r){ var s=(r.suffix&&(' '+r.suffix))||''; return r.first+' '+r.last+s; }
 
   function render(){
     var q=(search?search.value.toLowerCase():'');
@@ -69,18 +69,37 @@
   var editContact=document.getElementById('edit-contact');
   var editAddress=document.getElementById('edit-address');
   var editNotes=document.getElementById('edit-notes');
+  var editSuffix=document.getElementById('edit-suffix');
+  var editPhoto=document.getElementById('edit-photo');
+  var editValidId=document.getElementById('edit-validid');
   var saveBtn=document.getElementById('res-save');
   var editingUser=null;
 
   rows.addEventListener('click', function(e){
     var tr=e.target.closest('.t-row'); if(!tr) return; var username=tr.getAttribute('data-u'); var r=residents.find(function(x){return x.username===username;}); if(!r) return;
-    if (e.target.classList.contains('edit')){ editingUser=r; editFirst.value=r.first; editLast.value=r.last; editEmail.value=r.email; editContact.value=r.contact; editAddress.value=r.address||''; editNotes.value=r.notes||''; editModal.hidden=false; }
+    if (e.target.classList.contains('edit')){ editingUser=r; editFirst.value=r.first; editLast.value=r.last; editEmail.value=r.email; editContact.value=r.contact; editAddress.value=r.address||''; editNotes.value=r.notes||''; editSuffix && (editSuffix.value=r.suffix||''); if(editPhoto) editPhoto.value=''; if(editValidId) editValidId.value=''; editModal.hidden=false; }
     else if (e.target.classList.contains('delete')){ residents=residents.filter(function(x){return x.username!==username;}); pendingUpdates=pendingUpdates.filter(function(p){return p.username!==username;}); save('iSagip_residents', residents); save('iSagip_pending_updates', pendingUpdates); render(); }
     else if (e.target.classList.contains('reset')){ currentResetUser=r; resetModal.hidden=false; }
   });
 
+  function toBase64(file){ return new Promise(function(res, rej){ var r=new FileReader(); r.onload=function(){ res(r.result); }; r.onerror=rej; r.readAsDataURL(file); }); }
+
   if (saveBtn){
-    saveBtn.addEventListener('click', function(){ if(!editingUser) return; editingUser.first=editFirst.value.trim(); editingUser.last=editLast.value.trim(); editingUser.email=editEmail.value.trim(); editingUser.contact=editContact.value.trim(); editingUser.address=editAddress.value.trim(); editingUser.notes=editNotes.value.trim(); editModal.hidden=true; save('iSagip_residents', residents); render(); });
+    saveBtn.addEventListener('click', async function(){
+      if(!editingUser) return;
+      editingUser.first=editFirst.value.trim();
+      editingUser.last=editLast.value.trim();
+      editingUser.suffix=editSuffix?editSuffix.value.trim():editingUser.suffix;
+      editingUser.email=editEmail.value.trim();
+      editingUser.contact=editContact.value.trim();
+      editingUser.address=editAddress.value.trim();
+      editingUser.notes=editNotes.value.trim();
+      if (editPhoto && editPhoto.files && editPhoto.files[0]){ try { editingUser.photo=await toBase64(editPhoto.files[0]); } catch(_){} }
+      if (editValidId && editValidId.files && editValidId.files[0]){ try { editingUser.validId=await toBase64(editValidId.files[0]); } catch(_){} }
+      editModal.hidden=true;
+      save('iSagip_residents', residents);
+      render();
+    });
   }
 
   var resetModal=document.getElementById('res-reset-modal');

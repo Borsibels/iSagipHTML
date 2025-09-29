@@ -728,3 +728,16 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
   font-size: 14px;
   font-weight: 500;
 }
+/* Resident Registration sizing */
+#resident-register-form .input { font-size: 16px; padding: 12px 14px; }
+#resident-register-form .form-grid { 
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  column-gap: 20px; row-gap: 16px;
+}
+/* Staff Registration sizing */
+#register-form .input { font-size: 16px; padding: 12px 14px; }
+#register-form .form-grid {
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  column-gap: 20px; row-gap: 16px;
+}
+ 

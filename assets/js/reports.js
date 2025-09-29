@@ -45,9 +45,17 @@
   function actionCell(id, status){
     var assignments=loadAssignments();
     var selectedResponder=(assignments[id]&&assignments[id].responderName)||'';
+    var selectedSeverity=(assignments[id]&&assignments[id].severity)||'';
     return '<div class="actions">'+
       '<select class="input responder-select" data-id="'+id+'">'+responderOptionsHTML(selectedResponder)+'</select>'+
       '<select class="input ambulance-select" data-id="'+id+'"><option value="">Choose Ambulance</option><option>Ambulance 1</option><option>Ambulance 2</option><option>Ambulance 3</option></select>'+
+      '<select class="input severity-select" data-id="'+id+'">'+
+        '<option value="">Select Severity</option>'+
+        '<option'+(selectedSeverity==='Low'?' selected':'')+'>Low</option>'+
+        '<option'+(selectedSeverity==='Medium'?' selected':'')+'>Medium</option>'+
+        '<option'+(selectedSeverity==='High'?' selected':'')+'>High</option>'+
+        '<option'+(selectedSeverity==='Critical'?' selected':'')+'>Critical</option>'+
+      '</select>'+
       '<button class="btn btn-outline respond-btn" data-id="'+id+'">'+(status==='Ongoing'?'RESPONDED':'ONGOING')+'</button>'+
       '<button class="btn btn-outline view-btn" data-id="'+id+'">VIEW</button>'+
       '<a class="muted history-link history" href="#" data-id="'+id+'">VIEW HISTORY</a>'+
@@ -113,6 +121,13 @@
       var assigns=loadAssignments(); if(!assigns[rid]) assigns[rid]={}; assigns[rid].responderName=name; saveAssignments(assigns);
       rr.updatedBy=name; rr.updatedAt=new Date().toLocaleString();
       renderReportsTable();
+      return;
+    }
+    var sev=e.target.closest('.severity-select');
+    if (sev){
+      var sid=sev.getAttribute('data-id'); var sr=reports.find(function(x){return x.id===sid;}); if(!sr) return; var sevVal=sev.value || sev.options[sev.selectedIndex].text;
+      var assignsS=loadAssignments(); if(!assignsS[sid]) assignsS[sid]={}; assignsS[sid].severity=sevVal; saveAssignments(assignsS);
+      sr.updatedBy='Severity: '+sevVal; sr.updatedAt=new Date().toLocaleString();
       return;
     }
     var sel=e.target.closest('.ambulance-select'); if(!sel) return; if(!sel.value) return; var id=sel.getAttribute('data-id'); var r=reports.find(function(x){return x.id===id;}); if(!r) return; var ambName=sel.value || sel.options[sel.selectedIndex].text;
