@@ -5,9 +5,7 @@
 
   var reports=[
     { id:'SIM-2024-001', type:'Medical', description:'Simulated emergency from mobile app', status:'Pending', street:'-', landmark:'-', photo:null, timestamp:'2025-09-10 09:15:28 PM', responseTime:'N/A', reportedBy:'Simulated User', closedBy:'', updatedBy:'System', updatedAt:'2025-09-10 09:15:28 PM', notes:'Auto-generated from mobile app simulation.', location:{ lat:14.7338466, lng:121.01382136 }, history:[{ ts:'2025-09-10 09:15:28 PM', user:'Simulated User', action:'Created', details:'Simulated emergency report received.' }] },
-    { id:'REP-2024-002', type:'Fire', description:'Kitchen fire, smoke visible', status:'Relayed', street:'Block 3, Lot 5', landmark:'Beside Barangay Hall', photo:'', timestamp:'2024-03-20 10:15 AM', responseTime:'20 minutes', reportedBy:'Alice', closedBy:'Captain', updatedBy:'Captain', updatedAt:'2024-03-20 10:16 AM', notes:'', location:{ lat:14.748, lng:121.02 }, history:[{ ts:'2024-03-20 10:12 AM', user:'Alice', action:'Submitted', details:'Fire observed.' }] },
-    { id:'REP-2024-003', type:'Police', description:'Suspicious activity reported', status:'Pending', street:'Block 2, Lot 1', landmark:'Near parking Lot', photo:'', timestamp:'2024-03-20 09:45 AM', responseTime:'N/A', reportedBy:'Bob', closedBy:'Barangay Secretary', updatedBy:'Barangay Secretary', updatedAt:'2024-03-20 09:50 AM', notes:'', location:{ lat:14.745, lng:121.01 }, history:[{ ts:'2024-03-20 09:45 AM', user:'Bob', action:'Submitted', details:'Suspicious activity.' }] },
-    { id:'REP-2024-004', type:'Medical', description:'Child with high fever', status:'Pending', street:'Block 4, Lot 7', landmark:'Green Gate 2 floors house', photo:'', timestamp:'2024-03-21 08:10 AM', responseTime:'N/A', reportedBy:'Carol', closedBy:'Responder', updatedBy:'Responder', updatedAt:'2024-03-21 08:20 AM', notes:'', location:{ lat:14.753, lng:121.013 }, history:[{ ts:'2024-03-21 08:10 AM', user:'Carol', action:'Submitted', details:'High fever child.' }] }
+    { id:'SIM-2024-002', type:'Fire', description:'Test placeholder: small trash bin fire', status:'Pending', street:'-', landmark:'', photo:'', timestamp:'2025-09-11 10:05:12 AM', responseTime:'N/A', reportedBy:'Tester', closedBy:'', updatedBy:'System', updatedAt:'2025-09-11 10:05:12 AM', notes:'Placeholder for testing.', location:{ lat:14.734, lng:121.014 }, history:[{ ts:'2025-09-11 10:05:12 AM', user:'Tester', action:'Created', details:'Placeholder test report.' }] }
   ];
 
   // small status to colored badge
@@ -31,6 +29,16 @@
   function loadAssignments(){ try { return JSON.parse(localStorage.getItem('iSagip_report_assignments')||'{}'); } catch(e){ return {}; } }
   function saveAssignments(a){ try { localStorage.setItem('iSagip_report_assignments', JSON.stringify(a||{})); } catch(e){} }
 
+  // archive closed reports to localStorage for reference
+  function archiveReport(report){
+    try {
+      var key='iSagip_reports_archive';
+      var list=JSON.parse(localStorage.getItem(key)||'[]');
+      list.push(report);
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch(err){}
+  }
+
   function responderOptionsHTML(selected){
     var list=getResponders();
     var html='<option value="">Choose Responder</option>';
@@ -42,21 +50,33 @@
     return html;
   }
 
+  // severity display styling for the dropdown
+  // Note: Avoid background-color to prevent coloring the opened dropdown menu.
+  // Use text color + an inset left indicator instead.
+  function severityStyle(value){
+    var v=(value||'').toLowerCase();
+    if (v==='low') return 'color:#16a34a;box-shadow:inset 6px 0 0 0 #22c55e;font-weight:600;';
+    if (v==='medium') return 'color:#d97706;box-shadow:inset 6px 0 0 0 #f59e0b;font-weight:600;';
+    if (v==='high') return 'color:#dc2626;box-shadow:inset 6px 0 0 0 #ef4444;font-weight:600;';
+    return '';
+  }
+
   function actionCell(id, status){
     var assignments=loadAssignments();
     var selectedResponder=(assignments[id]&&assignments[id].responderName)||'';
     var selectedSeverity=(assignments[id]&&assignments[id].severity)||'';
+    var closeBtnHtml = (status!== 'Resolved') ? '<button class="btn btn-outline close-btn" data-id="'+id+'">CLOSE</button>' : '';
     return '<div class="actions">'+
       '<select class="input responder-select" data-id="'+id+'">'+responderOptionsHTML(selectedResponder)+'</select>'+
       '<select class="input ambulance-select" data-id="'+id+'"><option value="">Choose Ambulance</option><option>Ambulance 1</option><option>Ambulance 2</option><option>Ambulance 3</option></select>'+
-      '<select class="input severity-select" data-id="'+id+'">'+
+      '<select class="input severity-select" data-id="'+id+'" style="'+severityStyle(selectedSeverity)+'">'+
         '<option value="">Select Severity</option>'+
-        '<option'+(selectedSeverity==='Low'?' selected':'')+'>Low</option>'+
-        '<option'+(selectedSeverity==='Medium'?' selected':'')+'>Medium</option>'+
         '<option'+(selectedSeverity==='High'?' selected':'')+'>High</option>'+
-        '<option'+(selectedSeverity==='Critical'?' selected':'')+'>Critical</option>'+
+        '<option'+(selectedSeverity==='Medium'?' selected':'')+'>Medium</option>'+
+        '<option'+(selectedSeverity==='Low'?' selected':'')+'>Low</option>'+
       '</select>'+
       '<button class="btn btn-outline respond-btn" data-id="'+id+'">'+(status==='Ongoing'?'RESPONDED':'ONGOING')+'</button>'+
+      closeBtnHtml+
       '<button class="btn btn-outline view-btn" data-id="'+id+'">VIEW</button>'+
       '<a class="muted history-link history" href="#" data-id="'+id+'">VIEW HISTORY</a>'+
     '</div>';
@@ -87,6 +107,7 @@
 
   table.addEventListener('click', function(e){
     var btn=e.target.closest('.respond-btn'); if(btn){ var id=btn.getAttribute('data-id'); var r=reports.find(function(x){return x.id===id;}); if(!r) return; r.status=(r.status==='Ongoing')?'Responded':'Ongoing'; r.updatedBy='Current User'; r.updatedAt=new Date().toLocaleString(); renderReportsTable(); return; }
+    var close=e.target.closest('.close-btn'); if(close){ var cid=close.getAttribute('data-id'); var idx=reports.findIndex(function(x){return x.id===cid;}); if(idx===-1) return; if(!window.confirm('Are you sure you want to close this report?')) return; var cr=reports[idx]; cr.status='Resolved'; cr.closedBy='Current User'; cr.updatedBy='Current User'; cr.updatedAt=new Date().toLocaleString(); cr.closedAt=cr.updatedAt; if(!Array.isArray(cr.history)) cr.history=[]; cr.history.push({ ts: cr.updatedAt, user:'Current User', action:'Closed', details:'Report closed.' }); archiveReport(cr); reports.splice(idx,1); renderReportsTable(); return; }
     var view=e.target.closest('.view-btn'); if(view){
       var idv=view.getAttribute('data-id'); var rv=reports.find(function(x){return x.id===idv;}); if(!rv) return;
       var html='<div style="display:grid; grid-template-columns:160px 1fr; gap:16px; align-items:start;">'+
@@ -128,6 +149,7 @@
       var sid=sev.getAttribute('data-id'); var sr=reports.find(function(x){return x.id===sid;}); if(!sr) return; var sevVal=sev.value || sev.options[sev.selectedIndex].text;
       var assignsS=loadAssignments(); if(!assignsS[sid]) assignsS[sid]={}; assignsS[sid].severity=sevVal; saveAssignments(assignsS);
       sr.updatedBy='Severity: '+sevVal; sr.updatedAt=new Date().toLocaleString();
+      sev.style.cssText = severityStyle(sevVal);
       return;
     }
     var sel=e.target.closest('.ambulance-select'); if(!sel) return; if(!sel.value) return; var id=sel.getAttribute('data-id'); var r=reports.find(function(x){return x.id===id;}); if(!r) return; var ambName=sel.value || sel.options[sel.selectedIndex].text;
@@ -143,15 +165,17 @@
   document.addEventListener('click', function(e){
     if (e.target.classList && e.target.classList.contains('history')){
       e.preventDefault(); var id=e.target.getAttribute('data-id'); var r=reports.find(function(x){return x.id===id;}); if(!r) return; if(historyRows){ historyRows.innerHTML=(r.history||[]).map(function(h){ return '<div class="t-row"><div>'+h.ts+'</div><div>'+h.user+'</div><div>'+h.action+'</div><div>'+h.details+'</div></div>'; }).join(''); }
-      if(historyModal) historyModal.hidden=false;
+      if(historyModal) historyModal.hidden=false; return;
     }
+    var dc=e.target.closest('[data-close]');
+    if (dc){ var modal=dc.closest('.modal'); if(modal) modal.hidden=true; return; }
   });
 
   var exportReportsBtn=document.getElementById('reports-export-csv');
   if (exportReportsBtn){
     exportReportsBtn.addEventListener('click', function(){
       var headers=['Description','Status','Street','Landmark','Photo','Actions','Timestamp','Response Time','Reported By','Closed By','Last Updated By','Last Updated At','Notes'];
-      var body=reports.map(function(r){ var row=[r.description,r.status,r.street,r.landmark,r.photo?'Yes':'No','Ambulance/Responded/View/View History',r.timestamp,r.responseTime,r.reportedBy,r.closedBy,r.updatedBy,r.updatedAt,r.notes]; return row.map(function(v){ var s=String(v||''); if (s.search(/[",\n]/)>=0) s='"'+s.replace(/"/g,'""')+'"'; return s; }).join(','); }).join('\n');
+      var body=reports.map(function(r){ var row=[r.description,r.status,r.street,r.landmark,r.photo?'Yes':'No','Ambulance/Severity/Respond/View/History/Close',r.timestamp,r.responseTime,r.reportedBy,r.closedBy,r.updatedBy,r.updatedAt,r.notes]; return row.map(function(v){ var s=String(v||''); if (s.search(/[",\n]/)>=0) s='"'+s.replace(/"/g,'""')+'"'; return s; }).join(','); }).join('\n');
       var csv=headers.join(',')+'\n'+body; var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='received-reports.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url); a.remove();},0);
     });
   }
