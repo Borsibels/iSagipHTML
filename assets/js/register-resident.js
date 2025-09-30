@@ -1,4 +1,3 @@
-// Resident Registration: persist to localStorage with suffix and attachments
 (function(){
   var form=document.getElementById('resident-register-form'); if(!form) return;
 
@@ -7,7 +6,6 @@
   function showErr(m){ var el=getErr(); el.textContent=m; el.style.display=''; }
   function hideErr(){ var el=getErr(); el.textContent=''; el.style.display='none'; }
 
-  // Field refs
   var emailEl=document.getElementById('res-email');
   var contactEl=document.getElementById('res-contact');
   var passEl=document.getElementById('res-password');

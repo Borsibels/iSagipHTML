@@ -1,10 +1,4 @@
-// Common stuff used on most pages
-// - theme (dark/light), sidebar + RBAC, logout, simple page fade
-// - tiny notification helper (for staff)
-// - basic Firebase hooks (safe to ignore if SDK not loaded)
-
 (function(){
-  // Theme (dark/light) bootstrap
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     setTimeout(function(){
@@ -26,11 +20,9 @@
     document.addEventListener('DOMContentLoaded', function(){ document.body.classList.add('page-enter'); });
   })();
 
-  // expose a few helpers for page scripts
   window.applyTheme = applyTheme;
   window.updateCustomElementsForTheme = updateCustomElementsForTheme;
 
-  // Little fade when navigating between pages
   function navigateWithFade(url){
     var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) { window.location.href = url; return; }
@@ -40,7 +32,6 @@
   }
   window.navigateWithFade = navigateWithFade;
 
-  // Logout button (if present)
   (function attachLogout(){
     var logout = document.getElementById('logout');
     if (!logout) return;
@@ -50,7 +41,6 @@
     });
   })();
 
-  // Sidebar + simple role-based menu filtering
   function shouldShowMenuItem(userRole, menuText) {
     var rolePermissions = {
       'system_admin': { allowed: ['Registration', 'Resident Management', 'Settings'], denied: ['Dashboard', 'Reports', 'Ambulance'] },
@@ -103,7 +93,6 @@
     });
   })();
 
-  // Basic notification popups (only for barangay staff)
   function initializeNotificationContainer() {
     var container = document.getElementById('notification-container');
     if (!container) return;
@@ -204,11 +193,9 @@
   }
   initializeNotificationSystem();
 
-  // expose selectively
   window.showNewReportNotification = showNewReportNotification;
   window.updateReportsTable = updateReportsTable;
 
-  // If the reports page is open, try to add rows there too
   function updateReportsTable(newReport){
     if (!document.getElementById('reports-rows')) return;
     var reports = [];
@@ -224,7 +211,6 @@
     if (typeof window.renderReportsTable === 'function') { window.renderReportsTable(); }
   }
 
-  // Optional Firebase layer (works only if SDK + config are present)
   var Firebase = (function(){
     var app=null, db=null;
     function hasSdk(){ return typeof window!=='undefined' && !!(window.firebase && (window.firebase.initializeApp || (window.firebase.app && window.firebase.app()))); }

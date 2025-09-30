@@ -1,4 +1,3 @@
-// Login page: redirect based on account role (no tabs / no shortcuts)
 (function(){
 
   function isPageAllowedForRole(role, path){
@@ -18,7 +17,6 @@
     return 'barangay_staff';
   }
 
-  // Seed default accounts for testing if none exist
   (function seedAccountsIfMissing(){
     try {
       var existing=JSON.parse(localStorage.getItem('iSagip_accounts')||'null');
@@ -41,7 +39,6 @@
           var a=accounts[i]||{};
           var an=(a.username||a.email||'').toString().toLowerCase();
           if (an===uname){
-            // If password exists in store, match it; otherwise accept
             if (!a.password || a.password===password) return a;
           }
         }

@@ -1,4 +1,3 @@
-// Residents: search/filter + edit/delete/reset + approvals
 (function(){
   var rows=document.getElementById('res-rows');
   if (!rows) return;

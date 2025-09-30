@@ -1,4 +1,3 @@
-// Ambulance cards: quick status toggles and assignment display
 (function(){
   var grid=document.getElementById('ambulance-grid');
   if (!grid) return;

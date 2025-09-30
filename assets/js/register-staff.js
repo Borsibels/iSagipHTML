@@ -1,4 +1,3 @@
-// Registration (staff/responder): show responder type only when needed
 (function(){
   var roleSel=document.getElementById('reg-role');
   var typeWrap=document.getElementById('reg-responder-type-wrap');
@@ -14,19 +13,15 @@
   function showErr(m){ var el=getErr(); el.textContent=m; el.style.display=''; }
   function hideErr(){ var el=getErr(); el.textContent=''; el.style.display='none'; }
 
-  // Field references
   var emailEl=document.getElementById('reg-email');
   var contactEl=document.getElementById('reg-contact');
   var passEl=document.getElementById('reg-password');
   var pass2El=document.getElementById('reg-password2');
 
-  // Email basic validation (popup)
   if (emailEl){ emailEl.addEventListener('blur', function(){ var v=(emailEl.value||'').trim(); if (v && v.indexOf('@')===-1){ alert('Please enter a valid email address.'); } }); }
 
-  // Contact: allow digits only, cap at 13
   if (contactEl){ contactEl.addEventListener('input', function(){ var digits=(contactEl.value||'').replace(/\D/g,''); if (digits.length>13) digits=digits.slice(0,13); contactEl.value=digits; }); }
 
-  // Password strength meter
   function ensurePassMeter(el){
     if (!el) return null;
     var existing=document.getElementById(el.id+'-meter');
@@ -61,7 +56,6 @@
 
   if (passEl){ passEl.addEventListener('input', function(){ updateStrength(passEl); }); ensurePassMeter(passEl); }
 
-  // Confirm password inline check
   function ensureFieldError(afterEl, id){ var el=document.getElementById(id); if(el) return el; el=document.createElement('div'); el.id=id; el.style.color='#ef4444'; el.style.fontSize='12px'; el.style.marginTop='4px'; afterEl.parentElement && afterEl.parentElement.appendChild(el); return el; }
   if (pass2El){ pass2El.addEventListener('input', function(){ var err=ensureFieldError(pass2El,'reg-pass2-err'); if (pass2El.value && passEl && pass2El.value!==passEl.value){ err.textContent='Passwords do not match.'; } else { err.textContent=''; } }); }
 
@@ -90,7 +84,6 @@
     if ((contact||'').replace(/\D/g,'').length!==13){ showErr('Contact number must be exactly 13 digits.'); return; }
     if (pass!==pass2){ showErr('Passwords do not match.'); return; }
 
-    // Optional file checks (<= 5MB, image only)
     function invalidFile(f){ return !f ? false : (!/^image\//.test(f.type) || f.size>5*1024*1024); }
     if (invalidFile(photoFile)){ showErr('Photo must be an image up to 5MB.'); return; }
     if (invalidFile(idFile)){ showErr('Valid ID must be an image up to 5MB.'); return; }
@@ -105,7 +98,6 @@
       profile:{ first:first, middle:middle, last:last, suffix:suffix, age:age, birth:birth, contact:contact, address:address, responderType: role==='responder'?responderType:'', photo:photo64, validId:id64 } };
     try { accounts.push(newAcc); localStorage.setItem('iSagip_accounts', JSON.stringify(accounts)); } catch(_){}
 
-    // Keep a staff directory for quick lookup
     var staff=[]; try { staff=JSON.parse(localStorage.getItem('iSagip_staff')||'[]'); } catch(_) { staff=[]; }
     staff.push({ username:u, role:newAcc.role, first:first, last:last, suffix:suffix, email:email, contact:contact, responderType:newAcc.profile.responderType, photo:photo64, validId:id64 });
     try { localStorage.setItem('iSagip_staff', JSON.stringify(staff)); } catch(_){}

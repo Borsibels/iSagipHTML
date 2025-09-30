@@ -1,4 +1,3 @@
-// Dashboard: map + stats + export to CSV
 (function(){
   var reported = document.getElementById('reported-at');
   if (reported){
@@ -7,7 +6,6 @@
     reported.textContent = now.toLocaleString(undefined, opts);
   }
 
-  // Google Map init (key must be added in HTML)
   var mapEl=document.getElementById('map');
   if (mapEl){
     window.initISagipMap=function(){
