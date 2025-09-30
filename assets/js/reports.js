@@ -150,6 +150,7 @@
       var assignsS=loadAssignments(); if(!assignsS[sid]) assignsS[sid]={}; assignsS[sid].severity=sevVal; saveAssignments(assignsS);
       sr.updatedBy='Severity: '+sevVal; sr.updatedAt=new Date().toLocaleString();
       sev.style.cssText = severityStyle(sevVal);
+      try { window.alert('Severity updated to '+sevVal+'.'); } catch(e){}
       return;
     }
     var sel=e.target.closest('.ambulance-select'); if(!sel) return; if(!sel.value) return; var id=sel.getAttribute('data-id'); var r=reports.find(function(x){return x.id===id;}); if(!r) return; var ambName=sel.value || sel.options[sel.selectedIndex].text;
