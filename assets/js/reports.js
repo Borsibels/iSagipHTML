@@ -65,7 +65,16 @@
     var assignments=loadAssignments();
     var selectedResponder=(assignments[id]&&assignments[id].responderName)||'';
     var selectedSeverity=(assignments[id]&&assignments[id].severity)||'';
-    var closeBtnHtml = (status!== 'Resolved') ? '<button class="btn btn-outline close-btn" data-id="'+id+'">CLOSE</button>' : '';
+    var closeBtnHtml = (status!== 'Resolved') ? '<button title="Close report" class="btn btn-danger close-btn" data-id="'+id+'">CLOSE</button>' : '';
+    var relayBtnHtml = (status!== 'Resolved') ? '<button title="Mark as relayed (no resources)" class="btn btn-warn relay-btn" data-id="'+id+'">RELAY</button>' : '';
+    var notifyBtnHtml = '<div class="split" data-id="'+id+'">\
+      <button title="Send last used reason" class="btn btn-outline notify-btn" data-id="'+id+'">NOTIFY</button>\
+      <button title="Choose reason" class="btn btn-outline split-toggle" data-id="'+id+'">▾</button>\
+      <div class="split-menu" id="notify-menu-'+id+'">\
+        <button class="menu-item" data-reason="no_ambulance" data-id="'+id+'">No ambulance available</button>\
+        <button class="menu-item" data-reason="no_responder" data-id="'+id+'">No responder available</button>\
+      </div>\
+    </div>';
     return '<div class="actions">'+
       '<select class="input responder-select" data-id="'+id+'">'+responderOptionsHTML(selectedResponder)+'</select>'+
       '<select class="input ambulance-select" data-id="'+id+'"><option value="">Choose Ambulance</option><option>Ambulance 1</option><option>Ambulance 2</option><option>Ambulance 3</option></select>'+
@@ -76,6 +85,8 @@
         '<option'+(selectedSeverity==='Low'?' selected':'')+'>Low</option>'+
       '</select>'+
       '<button class="btn btn-outline respond-btn" data-id="'+id+'">'+(status==='Ongoing'?'RESPONDED':'ONGOING')+'</button>'+
+      relayBtnHtml+
+      notifyBtnHtml+
       closeBtnHtml+
       '<button class="btn btn-outline view-btn" data-id="'+id+'">VIEW</button>'+
       '<a class="muted history-link history" href="#" data-id="'+id+'">VIEW HISTORY</a>'+
@@ -107,6 +118,10 @@
 
   table.addEventListener('click', function(e){
     var btn=e.target.closest('.respond-btn'); if(btn){ var id=btn.getAttribute('data-id'); var r=reports.find(function(x){return x.id===id;}); if(!r) return; r.status=(r.status==='Ongoing')?'Responded':'Ongoing'; r.updatedBy='Current User'; r.updatedAt=new Date().toLocaleString(); renderReportsTable(); return; }
+    var relay=e.target.closest('.relay-btn'); if(relay){ var rid=relay.getAttribute('data-id'); var rr=reports.find(function(x){return x.id===rid;}); if(!rr) return; rr.status='Relayed'; rr.updatedBy='Current User'; rr.updatedAt=new Date().toLocaleString(); if(!Array.isArray(rr.history)) rr.history=[]; rr.history.push({ ts: rr.updatedAt, user:'Current User', action:'Relayed', details:'Relayed due to no available resources.' }); renderReportsTable(); return; }
+    var notify=e.target.closest('.notify-btn'); if(notify){ var nid=notify.getAttribute('data-id'); var nr=reports.find(function(x){return x.id===nid;}); if(!nr) return; var key='iSagip_last_notify_reason'; var reason=localStorage.getItem(key)||'no_ambulance'; var name=nr.reportedBy||'the resident'; var msg=(reason==='no_responder')?'No responder available.':'No ambulance available.'; if(!Array.isArray(nr.history)) nr.history=[]; var t=new Date().toLocaleString(); nr.history.push({ ts:t, user:'Current User', action:'Notified', details: msg+' Message sent to '+name+'.' }); nr.updatedBy='Current User'; nr.updatedAt=t; try { window.alert('Notification sent to '+name+': '+msg); } catch(e){} return; }
+    var toggle=e.target.closest('.split-toggle'); if(toggle){ var tid=toggle.getAttribute('data-id'); var menu=document.getElementById('notify-menu-'+tid); if(menu){ menu.classList.toggle('open'); } return; }
+    var menuItem=e.target.closest('.split-menu .menu-item'); if(menuItem){ var mid=menuItem.getAttribute('data-id'); var reasonSel=menuItem.getAttribute('data-reason'); var mr=reports.find(function(x){return x.id===mid;}); if(!mr) return; try { localStorage.setItem('iSagip_last_notify_reason', reasonSel); } catch(e){} var name2=mr.reportedBy||'the resident'; var msg2=(reasonSel==='no_responder')?'No responder available.':'No ambulance available.'; if(!Array.isArray(mr.history)) mr.history=[]; var t2=new Date().toLocaleString(); mr.history.push({ ts:t2, user:'Current User', action:'Notified', details: msg2+' Message sent to '+name2+'.' }); mr.updatedBy='Current User'; mr.updatedAt=t2; var mm=document.getElementById('notify-menu-'+mid); if(mm){ mm.classList.remove('open'); } try { window.alert('Notification sent to '+name2+': '+msg2); } catch(e){} return; }
     var close=e.target.closest('.close-btn'); if(close){ var cid=close.getAttribute('data-id'); var idx=reports.findIndex(function(x){return x.id===cid;}); if(idx===-1) return; if(!window.confirm('Are you sure you want to close this report?')) return; var cr=reports[idx]; cr.status='Resolved'; cr.closedBy='Current User'; cr.updatedBy='Current User'; cr.updatedAt=new Date().toLocaleString(); cr.closedAt=cr.updatedAt; if(!Array.isArray(cr.history)) cr.history=[]; cr.history.push({ ts: cr.updatedAt, user:'Current User', action:'Closed', details:'Report closed.' }); archiveReport(cr); reports.splice(idx,1); renderReportsTable(); return; }
     var view=e.target.closest('.view-btn'); if(view){
       var idv=view.getAttribute('data-id'); var rv=reports.find(function(x){return x.id===idv;}); if(!rv) return;
@@ -176,7 +191,7 @@
   if (exportReportsBtn){
     exportReportsBtn.addEventListener('click', function(){
       var headers=['Description','Status','Street','Landmark','Photo','Actions','Timestamp','Response Time','Reported By','Closed By','Last Updated By','Last Updated At','Notes'];
-      var body=reports.map(function(r){ var row=[r.description,r.status,r.street,r.landmark,r.photo?'Yes':'No','Ambulance/Severity/Respond/View/History/Close',r.timestamp,r.responseTime,r.reportedBy,r.closedBy,r.updatedBy,r.updatedAt,r.notes]; return row.map(function(v){ var s=String(v||''); if (s.search(/[",\n]/)>=0) s='"'+s.replace(/"/g,'""')+'"'; return s; }).join(','); }).join('\n');
+      var body=reports.map(function(r){ var row=[r.description,r.status,r.street,r.landmark,r.photo?'Yes':'No','Ambulance/Severity/Respond/Relay/Notify/View/History/Close',r.timestamp,r.responseTime,r.reportedBy,r.closedBy,r.updatedBy,r.updatedAt,r.notes]; return row.map(function(v){ var s=String(v||''); if (s.search(/[",\n]/)>=0) s='"'+s.replace(/"/g,'""')+'"'; return s; }).join(','); }).join('\n');
       var csv=headers.join(',')+'\n'+body; var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='received-reports.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url); a.remove();},0);
     });
   }

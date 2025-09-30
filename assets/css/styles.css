@@ -49,6 +49,8 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
 .btn-secondary { color: #fff; background: linear-gradient(90deg, #10b981, #059669); }
 .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #111827; }
 .btn-small { padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 12px; }
+.btn-warn { background: #f59e0b; color: #111827; }
+.btn-danger { background: #ef4444; color: #ffffff; }
 .links { text-align: center; margin-top: 10px; }
 .links .muted { color: var(--muted); text-decoration: none; font-size: 12px; }
 
@@ -135,11 +137,27 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
 .photo { width: 120px; height: 72px; background: #eef2ff; border: 1px dashed #c7d2fe; border-radius: 8px; }
 
 /* Reports table column sizing */
-.reports-table .t-row { grid-template-columns: 140px 220px 120px 160px 160px 120px 200px 160px 140px 120px 120px 160px 160px 220px; }
+.reports-table .t-row { grid-template-columns: 220px 160px 1fr 140px 140px 140px 300px 160px 140px 140px 140px 160px 160px 220px; }
 .reports-table .t-body .t-row > div { align-self: start; }
-.reports-table .actions { display: grid; grid-template-columns: 1fr; gap: 6px; width: 180px; }
-.reports-table .actions .input { padding: 8px 10px; font-size: 12px; }
+.reports-table .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: 100%; min-width: 0; }
+.reports-table .actions .input { padding: 8px 10px; font-size: 12px; grid-column: 1 / -1; }
 .reports-table .actions .btn { padding: 8px 10px; font-size: 12px; }
+.reports-table .actions .btn.view-btn { grid-column: 1 / span 1; }
+.reports-table .actions .history { grid-column: 2 / span 1; text-align: right; }
+.reports-table .t-head { position: sticky; top: 0; z-index: 2; }
+.reports-table .t-body .t-row:hover { background: rgba(2,8,23,0.03); }
+
+/* Split button for Notify */
+.reports-table .split { display: grid; grid-template-columns: 1fr 28px; gap: 6px; position: relative; }
+.reports-table .split .split-toggle { padding: 8px; }
+.reports-table .split-menu { position: absolute; top: calc(100% + 4px); right: 0; background: #fff; border: 1px solid var(--outline); border-radius: 8px; box-shadow: 0 8px 24px rgba(2,8,23,0.18); min-width: 220px; padding: 6px; display: none; z-index: 1000; color: #0f172a; }
+.reports-table .split-menu.open { display: grid; gap: 4px; }
+.reports-table .split-menu .menu-item { background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 10px 12px; text-align: left; font-size: 13px; cursor: pointer; color: #0f172a; font-weight: 600; }
+.reports-table .split-menu .menu-item:hover { background: #f1f5f9; border-color: #e2e8f0; }
+
+[data-theme="dark"] .reports-table .split-menu { background: var(--card); border-color: var(--outline); color: var(--text); }
+[data-theme="dark"] .reports-table .split-menu .menu-item { color: var(--text); }
+[data-theme="dark"] .reports-table .split-menu .menu-item:hover { background: #475569; border-color: #64748b; }
 .reports-table .history { font-size: 12px; text-align: center; }
 
 /* Modal */
