@@ -21,7 +21,6 @@
           <a class="menu-item" href="ambulance.html">Ambulance Status</a>
           <a class="menu-item active" href="resident-management.html" aria-current="page">Resident Management</a>
           <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
-          <a class="menu-item" href="register-resident.html">Resident Registration</a>
           <a class="menu-item" href="settings.html">Settings</a>
         </nav>
       </aside>
@@ -66,6 +65,21 @@
               <div>Actions</div>
             </div>
             <div class="t-body" id="res-approvals"></div>
+          </div>
+        </section>
+        
+        <section class="card">
+          <h3 class="section-title">Pending App Registrations</h3>
+          <div class="table res-table">
+            <div class="t-head t-row">
+              <div>Username</div>
+              <div>Name</div>
+              <div>Email</div>
+              <div>Contact</div>
+              <div>Proof</div>
+              <div>Actions</div>
+            </div>
+            <div class="t-body" id="app-registrations"></div>
           </div>
         </section>
       </main>
@@ -139,6 +153,25 @@
         <div class="modal-footer">
           <button class="btn btn-outline" data-close>Cancel</button>
           <button class="btn btn-primary" id="res-reset">Reset Password</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="appreg-reject-modal" hidden>
+      <div class="modal-dialog" style="max-width:520px;">
+        <div class="modal-header">
+          <div class="modal-title">Reject Registration</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body">
+          <label style="display:block;">
+            <span>Reason</span>
+            <textarea id="appreg-reject-reason" class="input" style="min-height:110px;"></textarea>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-close>Cancel</button>
+          <button class="btn btn-danger" id="appreg-reject-submit">Reject</button>
         </div>
       </div>
     </div>

@@ -3,6 +3,10 @@
   if (!rows) return;
 
   var approvalsEl=document.getElementById('res-approvals');
+  var appRegsEl=document.getElementById('app-registrations');
+  var rejectModal=document.getElementById('appreg-reject-modal');
+  var rejectReason=document.getElementById('appreg-reject-reason');
+  var rejectSubmit=document.getElementById('appreg-reject-submit');
   var search=document.getElementById('res-search');
   var statusSel=document.getElementById('res-status');
 
@@ -18,6 +22,16 @@
 
   var pendingUpdates=load('iSagip_pending_updates', null) || [ { username:'john_doe', changes:{ email:'john.new@example.com', contact:'1112223333' }, requestedAt:'2025-09-10 09:15 PM' } ];
   save('iSagip_pending_updates', pendingUpdates);
+  var appRegs=load('iSagip_app_registrations', null) || [];
+  if (!Array.isArray(appRegs) || appRegs.length===0){
+    appRegs = [
+      { username:'app_jdoe', first:'John', last:'Doe', suffix:'', email:'john.doe@app.test', contact:'0912345678901', address:'Block 3, Lot 5', proofs:['https://via.placeholder.com/640x420.png?text=Proof+of+Residency'] },
+      { username:'app_mlee', first:'Maria', last:'Lee', suffix:'Jr.', email:'maria.lee@app.test', contact:'0998765432100', address:'Block 1, Lot 2', proofs:['https://via.placeholder.com/640x420.png?text=Barangay+ID'] }
+    ];
+  }
+  save('iSagip_app_registrations', appRegs);
+  var appRegsFeedback=load('iSagip_app_registrations_feedback', null) || {};
+  save('iSagip_app_registrations_feedback', appRegsFeedback);
 
   function fullName(r){ var s=(r.suffix&&(' '+r.suffix))||''; return r.first+' '+r.last+s; }
 
@@ -55,6 +69,29 @@
         '</div>'+
       '</div>';
     }).join('');
+    
+    if (appRegsEl){
+      if (!appRegs.length){ 
+        appRegsEl.innerHTML = '<div class="t-row"><div style="grid-column:1/-1;color:var(--muted);padding:12px 16px;">No pending registrations.</div></div>';
+      } else {
+        appRegsEl.innerHTML=appRegs.map(function(a, idx){
+        var name=(a.first||'')+' '+(a.last||'')+((a.suffix&&(' '+a.suffix))||'');
+        var hasProof=a.proofPhoto||a.proofId|| (Array.isArray(a.proofs)&&a.proofs.length>0);
+        var proofHtml=hasProof?'<button class="icon-btn view-proof" data-idx="'+idx+'">View</button>':'None';
+        return '<div class="t-row" data-idx="'+idx+'">'+
+          '<div>'+ (a.username||'') +'</div>'+
+          '<div>'+ name +'</div>'+
+          '<div>'+ (a.email||'') +'</div>'+
+          '<div>'+ (a.contact||'') +'</div>'+
+          '<div>'+ proofHtml +'</div>'+
+          '<div class="res-actions">'+
+            '<button class="icon-btn approve-app">Approve</button>'+
+            '<button class="icon-btn delete reject-app">Reject</button>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+      }
+    }
   }
   render();
 
@@ -112,8 +149,59 @@
     if (e.target.classList.contains('approve')){ var p=pendingUpdates[idx]; var r=residents.find(function(x){return x.username===username;}); if(r) Object.assign(r, p.changes); pendingUpdates.splice(idx,1); save('iSagip_residents', residents); save('iSagip_pending_updates', pendingUpdates); render(); }
     else if (e.target.classList.contains('reject')){ pendingUpdates.splice(idx,1); save('iSagip_pending_updates', pendingUpdates); render(); }
   });
+  
+  if (appRegsEl){
+    var rejectIdx=null;
+    appRegsEl.addEventListener('click', function(e){
+      var tr=e.target.closest('.t-row'); if(!tr) return; var idx=parseInt(tr.getAttribute('data-idx'),10); if (isNaN(idx)) return;
+      if (e.target.classList.contains('view-proof')){ 
+        var a=appRegs[idx]; 
+        var imgs=[]; 
+        if (a.proofPhoto) imgs.push(a.proofPhoto); 
+        if (a.proofId) imgs.push(a.proofId); 
+        if (Array.isArray(a.proofs)) imgs=imgs.concat(a.proofs.filter(Boolean)); 
+        if (imgs.length){ window.open(imgs[0], '_blank'); } 
+        return; 
+      }
+      if (e.target.classList.contains('approve-app')){ 
+        var a2=appRegs[idx]; 
+        var newRes={ username:a2.username||'', first:a2.first||'', last:a2.last||'', suffix:a2.suffix||'', email:a2.email||'', contact:a2.contact||'', status:'active', address:a2.address||'', notes:'', photo:a2.photo||'', validId:a2.validId||'' }; 
+        residents.push(newRes); 
+        appRegsFeedback[a2.username||('u'+Date.now())]={ status:'approved', reviewedAt:new Date().toLocaleString(), reason:'' };
+        appRegs.splice(idx,1); 
+        save('iSagip_residents', residents); 
+        save('iSagip_app_registrations', appRegs); 
+        save('iSagip_app_registrations_feedback', appRegsFeedback);
+        render(); 
+        return; 
+      }
+      if (e.target.classList.contains('reject-app')){ 
+        rejectIdx=idx; 
+        if (rejectModal){ rejectModal.hidden=false; document.body.classList.add('modal-open'); if(rejectReason) rejectReason.value=''; }
+        return; 
+      }
+    });
+    if (rejectSubmit){ 
+      rejectSubmit.addEventListener('click', function(){
+        if (rejectIdx==null) { if(rejectModal){ rejectModal.hidden=true; document.body.classList.remove('modal-open'); } return; }
+        var a3=appRegs[rejectIdx]; 
+        var reason=(rejectReason && rejectReason.value.trim()) || 'Registration did not meet requirements.';
+        appRegsFeedback[a3.username||('u'+Date.now())]={ status:'rejected', reviewedAt:new Date().toLocaleString(), reason:reason };
+        appRegs.splice(rejectIdx,1);
+        save('iSagip_app_registrations', appRegs);
+        save('iSagip_app_registrations_feedback', appRegsFeedback);
+        if(rejectModal){ rejectModal.hidden=true; document.body.classList.remove('modal-open'); }
+        rejectIdx=null;
+        render();
+      }); 
+    }
+  }
 
-  document.addEventListener('click', function(e){ if (e.target.matches('[data-close]')){ editModal && (editModal.hidden=true); resetModal && (resetModal.hidden=true); } if (e.target.classList.contains('modal')){ e.target.hidden=true; } });
+  document.addEventListener('click', function(e){
+    var dc=e.target.closest('[data-close]');
+    if (dc){ var m=dc.closest('.modal'); if(m){ m.hidden=true; document.body.classList.remove('modal-open'); } return; }
+    if (e.target.classList.contains('modal')){ e.target.hidden=true; document.body.classList.remove('modal-open'); }
+  });
 })();
 
 
