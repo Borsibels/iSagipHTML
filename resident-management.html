@@ -27,19 +27,57 @@
       </aside>
 
       <main class="content">
+        <!-- Pending Registration Requests Section -->
         <section class="card">
-          <h3 class="section-title">Resident Management</h3>
+          <h3 class="section-title">Pending Registration Requests</h3>
+          <p style="color: var(--muted); font-size: 14px; margin: -8px 0 16px;">
+            Review and approve resident registration requests. Check their information and valid ID before approving.
+          </p>
+          <div class="filters" style="align-items:end;">
+            <label style="flex:1;">
+              <span>Search Requests</span>
+              <input id="pending-search" class="input" type="search" placeholder="Search by username, name, or email" />
+            </label>
+            <label>
+              <span>Sort By</span>
+              <select id="pending-sort" class="input">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name">Name (A-Z)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table res-table" style="margin-top:8px;">
+            <div class="t-head t-row">
+              <div>Request Date</div>
+              <div>Name</div>
+              <div>Email</div>
+              <div>Contact</div>
+              <div>ID Submitted</div>
+              <div>Actions</div>
+            </div>
+            <div class="t-body" id="pending-requests"></div>
+          </div>
+          <div id="pending-empty" style="text-align: center; padding: 2rem; color: var(--muted); display: none;">
+            No pending registration requests.
+          </div>
+        </section>
+
+        <!-- Approved Residents Section -->
+        <section class="card">
+          <h3 class="section-title">Approved Residents</h3>
           <div class="filters" style="align-items:end;">
             <label style="flex:1;">
               <span>Search Residents</span>
-              <input id="res-search" class="input" type="search" placeholder="Search by username, name, or email" />
+              <input id="approved-search" class="input" type="search" placeholder="Search by username, name, or email" />
             </label>
             <label>
               <span>Status Filter</span>
-              <select id="res-status" class="input">
+              <select id="approved-status" class="input">
                 <option value="all">All</option>
                 <option value="active">Active</option>
-                <option value="pending">Pending Update</option>
+                <option value="inactive">Inactive</option>
               </select>
             </label>
           </div>
@@ -50,28 +88,107 @@
               <div>Name</div>
               <div>Email</div>
               <div>Contact</div>
+              <div>Status</div>
               <div>Actions</div>
             </div>
-            <div class="t-body" id="res-rows"></div>
+            <div class="t-body" id="approved-residents"></div>
           </div>
-        </section>
-
-        <section class="card">
-          <h3 class="section-title">Pending Credential Updates</h3>
-          <div class="table res-table">
-            <div class="t-head t-row">
-              <div>Username</div>
-              <div>Requested Changes</div>
-              <div>Requested At</div>
-              <div>Actions</div>
-            </div>
-            <div class="t-body" id="res-approvals"></div>
+          <div id="approved-empty" style="text-align: center; padding: 2rem; color: var(--muted); display: none;">
+            No approved residents yet.
           </div>
         </section>
       </main>
     </div>
 
-    <!-- Edit Modal -->
+    <!-- Review Request Modal -->
+    <div class="modal" id="review-modal" hidden>
+      <div class="modal-dialog" style="max-width:900px;">
+        <div class="modal-header">
+          <div class="modal-title">Review Registration Request</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <!-- Left Column: Personal Information -->
+            <div>
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary);">Personal Information</h4>
+              <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>
+                  <span>Username</span>
+                  <input id="review-username" class="input" readonly />
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input id="review-email" class="input" readonly />
+                </label>
+                <label>
+                  <span>Full Name</span>
+                  <input id="review-name" class="input" readonly />
+                </label>
+                <label>
+                  <span>Gender</span>
+                  <input id="review-gender" class="input" readonly />
+                </label>
+                <label>
+                  <span>Birth Date</span>
+                  <input id="review-birth" class="input" readonly />
+                </label>
+                <label>
+                  <span>Contact Number</span>
+                  <input id="review-contact" class="input" readonly />
+                </label>
+                <label>
+                  <span>Address</span>
+                  <input id="review-address" class="input" readonly />
+                </label>
+                <label>
+                  <span>Request Date</span>
+                  <input id="review-date" class="input" readonly />
+                </label>
+              </div>
+            </div>
+            
+            <!-- Right Column: ID Document -->
+            <div>
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary);">Valid ID Document</h4>
+              <div style="border: 2px dashed var(--outline); border-radius: 8px; padding: 16px; background: #f8fafc; min-height: 400px; display: grid; place-items: center;">
+                <div id="id-preview-container" style="width: 100%; text-align: center;">
+                  <img id="id-preview" src="" alt="ID Document" style="max-width: 100%; max-height: 400px; border-radius: 8px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
+                  <div id="id-placeholder" style="color: var(--muted);">
+                    <div style="font-size: 48px; margin-bottom: 8px;">📄</div>
+                    <div>ID document will appear here</div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button class="btn btn-outline" id="view-id-fullscreen" style="flex: 1;">View Fullscreen</button>
+                <button class="btn btn-outline" id="download-id" style="flex: 1;">Download ID</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-close>Cancel</button>
+          <button class="btn" id="reject-request" style="background: #ef4444; color: #fff;">Reject</button>
+          <button class="btn btn-primary" id="approve-request">Approve</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen ID Viewer Modal -->
+    <div class="modal" id="id-fullscreen-modal" hidden>
+      <div class="modal-dialog" style="max-width: 95vw; max-height: 95vh; padding: 0;">
+        <div class="modal-header">
+          <div class="modal-title">ID Document - Fullscreen View</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body" style="padding: 16px; text-align: center; overflow: auto; max-height: calc(95vh - 80px);">
+          <img id="id-fullscreen-img" src="" alt="ID Document" style="max-width: 100%; max-height: calc(95vh - 120px); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Resident Modal -->
     <div class="modal" id="res-edit-modal" hidden>
       <div class="modal-dialog">
         <div class="modal-header">
@@ -101,8 +218,11 @@
               <input id="edit-address" class="input" />
             </label>
             <label style="grid-column:1/-1;">
-              <span>Notes</span>
-              <input id="edit-notes" class="input" />
+              <span>Status</span>
+              <select id="edit-status" class="input">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
             </label>
           </div>
         </div>
@@ -133,6 +253,38 @@
       </div>
     </div>
 
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+      
+      // Dispatch event to signal Firebase is ready
+      window.dispatchEvent(new Event('firebaseReady'));
+    </script>
+    
     <script src="assets/js/script.js"></script>
   </body>
   </html>

@@ -144,7 +144,18 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
 .amb-badge { font-weight: 900; letter-spacing: .3px; }
 
 /* Resident management */
-.res-table .t-row { grid-template-columns: 180px 1fr 260px 160px 160px; }
+.res-table .t-row { grid-template-columns: 140px 1fr 200px 140px 120px 220px; }
+.res-table .t-row > div:last-child { 
+  display: flex; 
+  flex-direction: row;
+  gap: 8px; 
+  align-items: center; 
+  flex-wrap: nowrap;
+}
+.res-table .t-row > div:last-child .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .res-actions { display: flex; gap: 10px; align-items: center; }
 .icon-btn { background: transparent; border: none; cursor: pointer; padding: 0; color: #2563eb; }
 .icon-btn.delete { color: #ef4444; }

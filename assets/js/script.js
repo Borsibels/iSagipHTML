@@ -2,30 +2,14 @@
 ====================================================
  iSagip Frontend (Vanilla JS)
 
- Architecture Overview (for backend integration)
+ UI Effects Only - Ready for Database Integration
  - Navigation & RBAC: login, role storage, sidebar filtering, active states
  - Page Transitions: fade-in/out helpers for consistent UX
- - Settings: dark mode, password modal, role display
- - Reports: CSV export helpers and live updates hooks
- - Notifications: visual + sound notifications for new reports
- - Feature Pages: Dashboard, Reports, Ambulance, Residents, Registration
- - Firebase Integration Layer (optional): thin wrapper that safely no-ops
-   when Firebase is not loaded; your team can enable it by including the
-   Firebase SDK and providing window.iSagipFirebaseConfig.
-
- How to enable Firebase quickly
- 1) Include Firebase SDK scripts (either compat v9 or v8) BEFORE this file
-    and set a global config as below:
-    <script>window.iSagipFirebaseConfig={ apiKey:'...', projectId:'...', ... };</script>
- 2) Optionally set localStorage key 'iSagip_useFirebase'='true' to force
-    initialization. If SDK+config exist, initialization is automatic.
- 3) The Firebase layer exposes: Firebase.isAvailable(), Firebase.init(),
-    Firebase.getDb(), ReportsAPI.onNewReports(cb), ReportsAPI.add(report).
-
- Notes
- - This file is intentionally verbose and documented to help the backend
-   team understand where to plug in APIs and database operations.
- - All functions are small, named, and grouped by section headers.
+ - Settings: dark mode, password modal structure, role display
+ - Basic Modal Handlers: close modals on outside click
+ 
+ All data-related functions have been removed.
+ Ready for backend/database integration.
 ====================================================
 */
 
@@ -35,103 +19,155 @@
 
 /**
  * Main login page functionality
- * Handles tab switching, form submission, and navigation
+ * Handles Firebase authentication and role-based redirection
  */
 (function initializeLoginPage() {
-  // ========================================
-  // TAB SWITCHING FUNCTIONALITY
-  // ========================================
-  
-  /**
-   * Initialize tab switching between System Admin and Barangay Staff
-   * Updates page content based on selected tab
-   */
-  var tabs = document.querySelectorAll('.tab');
-  if (tabs.length) {
-    tabs.forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        // Tab content fade swap
-        const card = document.querySelector('.login-card');
-        if (card) { card.classList.add('fade-swap','is-swapping'); }
-        // Remove active state from all tabs
-        tabs.forEach(function (tabElement) { 
-          tabElement.classList.remove('active'); 
-          tabElement.setAttribute('aria-selected', 'false'); 
-        });
-        
-        // Set clicked tab as active
-        tab.classList.add('active');
-        tab.setAttribute('aria-selected', 'true');
-
-        // Update page content based on selected tab with small delay to sync with fade
-        setTimeout(function(){
-          updateLoginPageContent(tab.dataset.tab === 'reports');
-          if (card) { card.classList.remove('is-swapping'); }
-        }, 120);
-      });
-    });
-  }
-
-  /**
-   * Update login page content based on selected tab
-   * @param {boolean} isReportsTab - Whether the reports tab is selected
-   */
-  function updateLoginPageContent(isReportsTab) {
-    const title = document.getElementById('login-title');
-    const subtitle = document.getElementById('login-subtitle');
-    const button = document.getElementById('login-button');
-    
-    if (title && subtitle && button) {
-      if (isReportsTab) {
-        // Barangay Staff mode
-        title.textContent = 'iSagip Barangay Staff';
-        subtitle.textContent = 'Sign in to barangay staff dashboard';
-        button.textContent = 'Login to Staff Dashboard';
-      } else {
-        // System Admin mode
-        title.textContent = 'iSagip System Admin';
-        subtitle.textContent = 'Sign in to system admin dashboard';
-        button.textContent = 'Login to Admin Dashboard';
-      }
-    }
-  }
-
   // ========================================
   // LOGIN FORM SUBMISSION
   // ========================================
   
   /**
    * Handle login form submission
-   * Determines user role and redirects to appropriate page
+   * Authenticates with Firebase and redirects based on user role
    */
   var form = document.getElementById('login-form');
   if (form) {
-    form.addEventListener('submit', function (e) {
+    form.addEventListener('submit', async function (e) {
       e.preventDefault();
       
-      // Determine user role based on active tab
-      const activeTab = document.querySelector('.tab.active');
-      const isReportsTab = activeTab && activeTab.dataset.tab === 'reports';
-      const userRole = isReportsTab ? 'barangay_staff' : 'system_admin';
+      var email = document.getElementById('login-email').value.trim().toLowerCase();
+      var password = document.getElementById('login-password').value;
       
-      // Store user role in localStorage for role-based access control
-      localStorage.setItem('iSagip_userRole', userRole);
+      // Validation
+      if (!email || !password) {
+        alert('Please enter both email and password.');
+        return; 
+      }
+
+      // Check if Firebase is available
+      if (!window.iSagipAuth || !window.iSagipDb) {
+        alert('Firebase is not initialized. Please refresh the page.');
+        return;
+      }
+
+      try {
+        // Import Firebase Auth and Firestore functions
+        const { signInWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+        const { doc, getDoc, collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+
+        // Authenticate user with email (Firebase Auth is case-sensitive for email)
+        const auth = window.iSagipAuth;
+        
+        // Log for debugging (remove in production)
+        console.log('Attempting login with email:', email);
+        
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        console.log('Authentication successful. User UID:', user.uid);
+
+        // Get user role from Firestore - check all collections
+        const db = window.iSagipDb;
+        var userRole = null;
+        var userData = null;
+
+        // Check admin collection first - try by UID
+        const adminDoc = await getDoc(doc(db, 'admin', user.uid));
+        if (adminDoc.exists()) {
+          userData = adminDoc.data();
+          userRole = userData.role || 'admin';
+          console.log('Admin found by UID. Role:', userRole);
+        } else {
+          // If not found by UID, try searching by email in admin collection
+          const { collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+          const adminQuery = query(collection(db, 'admin'), where('email', '==', email));
+          const adminSnapshot = await getDocs(adminQuery);
+          
+          if (!adminSnapshot.empty) {
+            adminSnapshot.forEach((doc) => {
+              userData = doc.data();
+              userRole = userData.role || 'admin';
+              console.log('Admin found by email. Role:', userRole);
+            });
+          } else {
+            // Check staff collection
+            const staffDoc = await getDoc(doc(db, 'staff', user.uid));
+            if (staffDoc.exists()) {
+              userData = staffDoc.data();
+              userRole = userData.role || 'barangay_staff';
+              console.log('Staff found. Role:', userRole);
+            } else {
+              // Check responder collection
+              const responderDoc = await getDoc(doc(db, 'responder', user.uid));
+              if (responderDoc.exists()) {
+                userData = responderDoc.data();
+                userRole = userData.role || 'responder';
+                console.log('Responder found. Role:', userRole);
+              }
+            }
+          }
+        }
+
+        // If no role found, default to barangay_staff
+        if (!userRole) {
+          userRole = 'barangay_staff';
+          console.log('No role found, defaulting to barangay_staff');
+        }
+
+        console.log('Final user role:', userRole);
+        console.log('Redirecting to:', getDestinationForRole(userRole));
+
+        // Store user role and UID in localStorage
+        localStorage.setItem('iSagip_userRole', userRole);
+        localStorage.setItem('iSagip_userUID', user.uid);
       
-      // Navigate with fade-out
-      const destination = getDestinationForRole(userRole);
-      navigateWithFade(destination);
+        // Navigate based on role
+        const destination = getDestinationForRole(userRole);
+        navigateWithFade(destination);
+
+      } catch (error) {
+        console.error('Login error:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
+        
+        var errorMessage = 'Login failed. ';
+        
+        if (error.code === 'auth/user-not-found') {
+          errorMessage += 'No account found with this email. Please make sure you are registered in Firebase Authentication.';
+        } else if (error.code === 'auth/wrong-password') {
+          errorMessage += 'Incorrect password. Please check your password and try again.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage += 'Invalid email address format.';
+        } else if (error.code === 'auth/invalid-credential') {
+          errorMessage += 'Invalid email or password. Please verify:\n';
+          errorMessage += '1. The email is correct (check for typos)\n';
+          errorMessage += '2. The password is correct\n';
+          errorMessage += '3. The account exists in Firebase Authentication\n';
+          errorMessage += '\nNote: If you were manually added to Firestore, you must also be registered in Firebase Authentication.';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorMessage += 'Too many failed login attempts. Please try again later.';
+        } else if (error.code === 'auth/network-request-failed') {
+          errorMessage += 'Network error. Please check your internet connection.';
+        } else {
+          errorMessage += error.message || 'Unknown error occurred.';
+        }
+        
+        alert(errorMessage);
+      }
     });
   }
 
   /**
    * Get destination page based on user role
-   * @param {string} role - User role (system_admin, barangay_staff, live_viewer)
+   * @param {string} role - User role (admin, system_admin, barangay_staff, responder, live_viewer)
    * @returns {string} - Destination page URL
    */
   function getDestinationForRole(role) {
     const roleDestinations = {
-      'system_admin': 'register-staff.html',    // System admin → Registration pages
-      'barangay_staff': 'dashboard.html',       // Barangay staff → Dashboard
+      'admin': 'register-staff.html',           // Admin → Registration pages
+      'system_admin': 'register-staff.html',     // System admin → Registration pages
+      'barangay_staff': 'dashboard.html',        // Barangay staff → Dashboard
+      'responder': 'dashboard.html',             // Responder → Dashboard
       'live_viewer': 'reportsViewing.html'      // Live viewer → Reports viewing
     };
     
@@ -164,17 +200,87 @@
   /**
    * Handle logout button click
    * Clears user session and redirects to login page
+   * Prevents back button navigation after logout
    */
   var logout = document.getElementById('logout');
   if (logout) {
-    logout.addEventListener('click', function () {
-      // Clear user role from localStorage
-      localStorage.removeItem('iSagip_userRole');
+    logout.addEventListener('click', async function () {
+      // Sign out from Firebase Auth
+      if (window.iSagipAuth) {
+        try {
+          const { signOut } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+          const auth = window.iSagipAuth;
+          await signOut(auth);
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+      }
       
-      // Redirect to login page with fade
-      navigateWithFade('index.html');
+      // Clear all user data from localStorage (keep theme preference)
+      localStorage.removeItem('iSagip_userRole');
+      localStorage.removeItem('iSagip_userUID');
+      
+      // Clear browser history to prevent back button navigation
+      // Replace current history entry with login page
+      window.history.replaceState(null, null, 'index.html');
+      
+      // Use replace instead of navigate to prevent back button access
+      window.location.replace('index.html');
     });
   }
+
+  // ========================================
+  // AUTHENTICATION CHECK (PROTECTED PAGES)
+  // ========================================
+  
+  /**
+   * Check if user is authenticated on protected pages
+   * Redirects to login if not authenticated
+   * Should be called on pages that require authentication
+   */
+  (function checkAuthentication() {
+    // Skip check on login page
+    if (window.location.pathname.includes('index.html') || 
+        window.location.pathname === '/' || 
+        window.location.pathname.endsWith('/')) {
+      return;
+    }
+
+    // Check if user is authenticated (has role in localStorage)
+    const userRole = localStorage.getItem('iSagip_userRole');
+    const userUID = localStorage.getItem('iSagip_userUID');
+    
+    // If no authentication data, redirect to login
+    if (!userRole || !userUID) {
+      // Clear any remaining data
+      localStorage.clear();
+      
+      // Redirect to login page (replace to prevent back button)
+      window.location.replace('index.html');
+      return;
+    }
+
+    // Optional: Verify Firebase Auth state
+    if (window.iSagipAuth) {
+      // Check auth state asynchronously
+      (async () => {
+        try {
+          const { onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+          const auth = window.iSagipAuth;
+          
+          onAuthStateChanged(auth, (user) => {
+            if (!user) {
+              // User is not authenticated in Firebase
+              localStorage.clear();
+              window.location.replace('index.html');
+            }
+          });
+        } catch (error) {
+          console.error('Auth state check error:', error);
+        }
+      })();
+    }
+  })();
 
   // ========================================
   // SIDEBAR NAVIGATION & ROLE-BASED ACCESS
@@ -229,11 +335,19 @@
    */
   function shouldShowMenuItem(userRole, menuText) {
     const rolePermissions = {
+      'admin': {
+        allowed: ['Registration', 'Resident Management', 'Settings'],
+        denied: ['Dashboard', 'Reports', 'Ambulance']
+      },
       'system_admin': {
         allowed: ['Registration', 'Resident Management', 'Settings'],
         denied: ['Dashboard', 'Reports', 'Ambulance']
       },
       'barangay_staff': {
+        allowed: ['Dashboard', 'Reports', 'Ambulance', 'Settings'],
+        denied: ['Registration', 'Resident Management']
+      },
+      'responder': {
         allowed: ['Dashboard', 'Reports', 'Ambulance', 'Settings'],
         denied: ['Registration', 'Resident Management']
       },
@@ -293,15 +407,14 @@
     return false;
   }
 
-  // Populate reported time example
-  var reported = document.getElementById('reported-at');
-  if (reported) {
-    var now = new Date();
-    var opts = { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
-    reported.textContent = now.toLocaleString(undefined, opts);
-  }
+  // ========================================
+  // GOOGLE MAPS INITIALIZATION
+  // ========================================
   
-  // Google Maps init replicating EmergencyMap.tsx logic
+  /**
+   * Initialize Google Maps for dashboard
+   * Sets up map with Barangay Hall marker
+   */
   var mapEl = document.getElementById('map');
   if (mapEl) {
     window.initISagipMap = function () {
@@ -325,12 +438,9 @@
         }
       });
 
-      // Sample emergencies; replace with dynamic data later
-      var emergencies = [
-        { id: 'E1', location: { lat: 14.753, lng: 121.013 }, type: 'Medical', description: 'Chest pain', timestamp: new Date().toLocaleString() },
-        { id: 'E2', location: { lat: 14.748, lng: 121.02 }, type: 'Fire', description: 'Kitchen fire', timestamp: new Date().toLocaleString() },
-        { id: 'E3', location: { lat: 14.745, lng: 121.01 }, type: 'Police', description: 'Disturbance', timestamp: new Date().toLocaleString() }
-      ];
+      // Emergency markers will be populated from backend/database
+      // TODO: Add emergency markers from database
+      var emergencies = [];
 
       emergencies.forEach(function (em) {
         var marker = new google.maps.Marker({
@@ -353,320 +463,27 @@
         });
       });
 
-      map.addListener('click', function () { infoWindow.close(); selectedMarker = null; });
+      map.addListener('click', function () { 
+        infoWindow.close(); 
+        selectedMarker = null; 
+      });
     };
   }
 
-  // Populate filter years
-  var yearSel = document.getElementById('filter-year');
-  if (yearSel) {
-    var currentYear = new Date().getFullYear();
-    for (var y = currentYear; y >= currentYear - 5; y--) {
-      var opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = String(y);
-      yearSel.appendChild(opt);
-    }
-  }
-
-  // Demo dataset for CSV export
-  var allReports = [
-    { id: 'REP-2024-002', type: 'Fire', description: 'Kitchen fire, smoke visible', status: 'Relayed', street: 'Block 3, Lot 5', landmark: 'Beside Barangay Hall', location: 'Block 3, Lot 5', reportedBy: 'Alice', timestamp: '2024-03-20 10:15 AM' },
-    { id: 'REP-2024-003', type: 'Police', description: 'Suspicious activity reported', status: 'Pending', street: 'Block 2, Lot 1', landmark: 'Near parking Lot', location: 'Block 2, Lot 1', reportedBy: 'Bob', timestamp: '2024-03-20 09:45 AM' },
-    { id: 'REP-2024-004', type: 'Medical', description: 'Child with high fever', status: 'Pending', street: 'Block 4, Lot 7', landmark: 'Green Gate 2 floors house', location: 'Block 4, Lot 7', reportedBy: 'Carol', timestamp: '2024-03-21 08:10 AM' },
-    { id: 'REP-2025-001', type: 'Medical', description: 'Chest pain', status: 'Ongoing', street: 'Block 1, Lot 2', landmark: 'Near alley', location: 'Block 1, Lot 2', reportedBy: 'Dan', timestamp: '2025-01-05 08:30 PM' }
-  ];
-
-  function parseTs(ts){
-    var d = new Date(ts);
-    if (isNaN(d.getTime())) {
-      // Fallback for M/D/YYYY HH:MM AM format
-      return new Date(Date.parse(ts));
-    }
-    return d;
-  }
-
-  function filterReports(period, monthIdx, year){
-    return allReports.filter(function(r){
-      var d = parseTs(r.timestamp);
-      if (period === 'year') return d.getFullYear() === year;
-      if (period === 'month') return d.getFullYear() === year && d.getMonth() === monthIdx;
-      // week: filter by ISO week of year for the selected year and current week of chosen month (approx: within the month)
-      if (period === 'week') return d.getFullYear() === year && d.getMonth() === monthIdx && Math.abs(d.getDate() - 15) <= 7;
-      return true;
-    });
-  }
-
-  function toCsv(rows){
-    var headers = ['Report ID','Type','Description','Status','Street','Landmark','Location','Reported By','Timestamp'];
-    var body = rows.map(function(r){
-      return [r.id,r.type,r.description,r.status,r.street,r.landmark,r.location,r.reportedBy,r.timestamp].map(function(val){
-        var s = String(val==null?'':val);
-        if (s.search(/[",\n]/)>=0) s = '"' + s.replace(/"/g,'""') + '"';
-        return s;
-      }).join(',');
-    });
-    return [headers.join(','), body.join('\n')].join('\n');
-  }
-
-  function download(filename, text){
-    var blob = new Blob([text], {type: 'text/csv;charset=utf-8;'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 0);
-  }
-
-  var exportBtn = document.getElementById('export-csv');
-  if (exportBtn) {
-    exportBtn.addEventListener('click', function(){
-      var periodSel = document.getElementById('filter-period');
-      var monthSel = document.getElementById('filter-month');
-      var yearSel2 = document.getElementById('filter-year');
-      var period = periodSel ? periodSel.value : 'month';
-      var monthIdx = monthSel ? parseInt(monthSel.value, 10) : (new Date()).getMonth();
-      var year = yearSel2 ? parseInt(yearSel2.value, 10) : (new Date()).getFullYear();
-
-      var rows = filterReports(period, monthIdx, year);
-      var csv = toCsv(rows);
-      var label = period === 'year' ? year : (period === 'month' ? (year + '-' + String(monthIdx+1).padStart(2,'0')) : (year + '-Wk'));
-      download('iSagip-reports-' + label + '.csv', csv);
-    });
-  }
-
-  // Received Reports page logic
-  (function setupReceivedReports(){
-    var table = document.getElementById('reports-rows');
-    if (!table) return;
-
-    var reports = [
-      { id:'SIM-2024-001', type:'Medical', description:'Simulated emergency from mobile app', status:'Pending', street:'-', landmark:'-', photo:null, timestamp:'2025-09-10 09:15:28 PM', responseTime:'N/A', reportedBy:'Simulated User', closedBy:'', updatedBy:'System', updatedAt:'2025-09-10 09:15:28 PM', notes:'Auto-generated from mobile app simulation.', location:{ lat:14.7338466, lng:121.01382136 }, history:[{ ts:'2025-09-10 09:15:28 PM', user:'Simulated User', action:'Created', details:'Simulated emergency report received.' }] },
-      { id:'REP-2024-002', type:'Fire', description:'Kitchen fire, smoke visible', status:'Relayed', street:'Block 3, Lot 5', landmark:'Beside Barangay Hall', photo:'', timestamp:'2024-03-20 10:15 AM', responseTime:'20 minutes', reportedBy:'Alice', closedBy:'Captain', updatedBy:'Captain', updatedAt:'2024-03-20 10:16 AM', notes:'', location:{ lat:14.748, lng:121.02 }, history:[{ ts:'2024-03-20 10:12 AM', user:'Alice', action:'Submitted', details:'Fire observed.' }] },
-      { id:'REP-2024-003', type:'Police', description:'Suspicious activity reported', status:'Pending', street:'Block 2, Lot 1', landmark:'Near parking Lot', photo:'', timestamp:'2024-03-20 09:45 AM', responseTime:'N/A', reportedBy:'Bob', closedBy:'Barangay Secretary', updatedBy:'Barangay Secretary', updatedAt:'2024-03-20 09:50 AM', notes:'', location:{ lat:14.745, lng:121.01 }, history:[{ ts:'2024-03-20 09:45 AM', user:'Bob', action:'Submitted', details:'Suspicious activity.' }] },
-      { id:'REP-2024-004', type:'Medical', description:'Child with high fever', status:'Pending', street:'Block 4, Lot 7', landmark:'Green Gate 2 floors house', photo:'', timestamp:'2024-03-21 08:10 AM', responseTime:'N/A', reportedBy:'Carol', closedBy:'Responder', updatedBy:'Responder', updatedAt:'2024-03-21 08:20 AM', notes:'', location:{ lat:14.753, lng:121.013 }, history:[{ ts:'2024-03-21 08:10 AM', user:'Carol', action:'Submitted', details:'High fever child.' }] }
-    ];
-
-    // Stats
-    var resolved = reports.filter(function(r){return r.status.toLowerCase()==='responded' || r.status.toLowerCase()==='resolved';}).length;
-    var active = reports.filter(function(r){return r.status.toLowerCase()==='ongoing' || r.status.toLowerCase()==='pending' || r.status.toLowerCase()==='relayed';}).length;
-    var avg = 18; // demo
-    var total = reports.length;
-    var totalEl = document.getElementById('r-total'); if (totalEl) totalEl.textContent = String(total);
-    var resEl = document.getElementById('r-resolved'); if (resEl) resEl.textContent = String(resolved);
-    var actEl = document.getElementById('r-active'); if (actEl) actEl.textContent = String(active);
-    var avgEl = document.getElementById('r-avg'); if (avgEl) avgEl.textContent = avg + ' minutes';
-
-    function statusBadge(s){
-      var map = { Pending:'badge-orange', Relayed:'badge-orange', Ongoing:'badge-blue', Responded:'badge-green', Resolved:'badge-green' };
-      return '<span class="badge '+(map[s]||'badge-blue')+'">'+s+'</span>';
-    }
-
-    function actionCell(id, status){
-      return (
-        '<div class="actions">'+
-            '<select class="input ambulance-select" data-id="'+id+'">'+
-              '<option value="">Choose Ambulance</option><option>Ambulance 1</option><option>Ambulance 2</option><option>Ambulance 3</option>'+
-            '</select>'+
-          '<button class="btn btn-outline respond-btn" data-id="'+id+'">'+(status==='Ongoing'?'RESPONDED':'ONGOING')+'</button>'+
-          '<button class="btn btn-outline view-btn" data-id="'+id+'">VIEW</button>'+
-          '<a class="muted history-link history" href="#" data-id="'+id+'">VIEW HISTORY</a>'+
-        '</div>'
-      );
-    }
-
-    function render(){
-      table.innerHTML = reports.map(function(r){
-        return (
-          '<div class="t-row" data-id="'+r.id+'">'+
-            '<div>'+r.id+'</div>'+
-            '<div>'+r.description+'</div>'+
-            '<div>'+statusBadge(r.status)+'</div>'+
-            '<div>'+r.street+'</div>'+
-            '<div>'+r.landmark+'</div>'+
-            '<div>'+(r.photo?'<img src="'+r.photo+'" alt="photo" style="width:80px;height:56px;object-fit:cover;border-radius:6px;">':'<div class="photo"></div>')+'</div>'+
-            '<div>'+actionCell(r.id, r.status)+'</div>'+
-            '<div>'+r.timestamp+'</div>'+
-            '<div>'+r.responseTime+'</div>'+
-            '<div>'+r.reportedBy+'</div>'+
-            '<div>'+r.closedBy+'</div>'+
-            '<div>'+r.updatedBy+'</div>'+
-            '<div>'+r.updatedAt+'</div>'+
-            '<div>'+r.notes+'</div>'+
-          '</div>'
-        );
-      }).join('');
-    }
-
-    render();
-
-    // Toggle Responded/Ongoing
-    table.addEventListener('click', function(e){
-      var btn = e.target.closest('.respond-btn');
-      if (!btn) return;
-      var id = btn.getAttribute('data-id');
-      var r = reports.find(function(x){return x.id===id;});
-      if (!r) return;
-      r.status = (r.status==='Ongoing') ? 'Responded' : 'Ongoing';
-      r.updatedBy = 'Current User';
-      r.updatedAt = new Date().toLocaleString();
-      render();
-    });
-
-    // Ambulance selection → persist to localStorage and mark ambulance IN-USE
-    table.addEventListener('change', function(e){
-      var sel = e.target.closest('.ambulance-select');
-      if (!sel) return;
-      if (!sel.value) return; // Skip if "Choose Ambulance" is selected
-      var id = sel.getAttribute('data-id');
-      var r = reports.find(function(x){return x.id===id;});
-      if (!r) return;
-      var ambName = sel.value || sel.options[sel.selectedIndex].text;
-      try {
-        var store = JSON.parse(localStorage.getItem('iSagip_ambulances')) || [
-          { id: 1, name: 'Ambulance 1', status: 'AVAILABLE', location: '' },
-          { id: 2, name: 'Ambulance 2', status: 'AVAILABLE', location: '' },
-          { id: 3, name: 'Ambulance 3', status: 'AVAILABLE', location: '' }
-        ];
-        var idx = store.findIndex(function(a){ return (a.name||('Ambulance '+a.id)) === ambName; });
-        if (idx !== -1) {
-          store[idx].status = 'IN-USE';
-          store[idx].location = r.street;
-          store[idx].assignmentId = r.id;
-          localStorage.setItem('iSagip_ambulances', JSON.stringify(store));
-        }
-      } catch(err) {}
-    });
-
-    // View details
-    var detailsModal = document.getElementById('modal-details');
-    var detailsContent = document.getElementById('details-content');
-    table.addEventListener('click', function(e){
-      var btn = e.target.closest('.view-btn');
-      if (!btn) return;
-      var id = btn.getAttribute('data-id');
-      var r = reports.find(function(x){return x.id===id;});
-      if (!r) return;
-      var html = ''+
-        '<div style="display:grid; grid-template-columns:160px 1fr; gap:16px; align-items:start;">'+
-          '<div class="photo" style="width:160px;height:120px;">'+(r.photo?'<img src="'+r.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"/>':'<div style="display:grid;place-items:center;height:100%;color:#94a3b8;">No Photo</div>')+'</div>'+
-          '<div>'+
-            '<div><strong>Report ID:</strong> '+r.id+'</div>'+
-            '<div><strong>Type:</strong> '+r.type+'</div>'+
-            '<div><strong>Description:</strong> '+r.description+'</div>'+
-            '<div><strong>Status:</strong> '+r.status+'</div>'+
-            '<div><strong>Street:</strong> '+r.street+'</div>'+
-            '<div><strong>Landmark:</strong> '+r.landmark+'</div>'+
-            '<div><strong>Location:</strong> Lat '+(r.location?r.location.lat:'-')+', Lng '+(r.location?r.location.lng:'-')+'</div>'+
-            '<div><strong>Timestamp:</strong> '+r.timestamp+'</div>'+
-            '<div><strong>Response Time:</strong> '+r.responseTime+'</div>'+
-            '<div><strong>Reported By:</strong> '+r.reportedBy+'</div>'+
-            '<div><strong>Closed By:</strong> '+r.closedBy+'</div>'+
-            '<div><strong>Last Updated By:</strong> '+r.updatedBy+'</div>'+
-            '<div><strong>Last Updated At:</strong> '+r.updatedAt+'</div>'+
-            '<div><strong>Notes:</strong> '+(r.notes||'')+'</div>'+
-          '</div>'+
-        '</div>';
-      detailsContent.innerHTML = html;
-      detailsModal.hidden = false;
-    });
-
-    // History modal
-    var historyModal = document.getElementById('modal-history');
-    var historyRows = document.getElementById('history-rows');
-    table.addEventListener('click', function(e){
-      var link = e.target.closest('.history-link');
-      if (!link) return;
-      var id = link.getAttribute('data-id');
-      var r = reports.find(function(x){return x.id===id;});
-      if (!r) return;
-      historyRows.innerHTML = (r.history||[]).map(function(h){
-        return '<div class="t-row"><div>'+h.ts+'</div><div>'+h.user+'</div><div>'+h.action+'</div><div>'+h.details+'</div></div>';
-      }).join('');
-      historyModal.hidden = false;
-    });
-
-    // Close modals
-    document.addEventListener('click', function(e){
-      if (e.target.matches('[data-close]')) {
-        detailsModal && (detailsModal.hidden = true);
-        historyModal && (historyModal.hidden = true);
-      }
-      if (e.target.classList.contains('modal')) {
-        e.target.hidden = true;
-      }
-    });
-
-    // Export CSV for this page
-    var exportReportsBtn = document.getElementById('reports-export-csv');
-    if (exportReportsBtn) {
-      exportReportsBtn.addEventListener('click', function(){
-        var headers = ['Description','Status','Street','Landmark','Photo','Actions','Timestamp','Response Time','Reported By','Closed By','Last Updated By','Last Updated At','Notes'];
-        var body = reports.map(function(r){
-          var row = [r.description,r.status,r.street,r.landmark,r.photo?'Yes':'No','Ambulance/Responded/View/View History',r.timestamp,r.responseTime,r.reportedBy,r.closedBy,r.updatedBy,r.updatedAt,r.notes];
-          return row.map(function(v){ var s=String(v||''); if (s.search(/[",\n]/)>=0) s='"'+s.replace(/"/g,'""')+'"'; return s; }).join(',');
-        }).join('\n');
-        var csv = headers.join(',') + '\n' + body;
-        var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a'); a.href=url; a.download='received-reports.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(url); a.remove();},0);
-      });
-    }
-  })();
-
-  // Register page logic
-  (function setupRegister(){
-    var roleSel = document.getElementById('reg-role');
-    var responderWrap = document.getElementById('reg-responder-type-wrap');
-    // Simple tab switch based on our local tabs within this page
-    var tabsContainer = document.querySelector('main .tabs');
-    var respForm = document.getElementById('register-form');
-    var residentForm = document.getElementById('resident-register-form');
-    if (tabsContainer && respForm && residentForm) {
-      // Ensure initial state: show responder/staff, hide resident
-      respForm.hidden = false;
-      residentForm.hidden = true;
-      tabsContainer.addEventListener('click', function(e){
-        var btn = e.target.closest('.tab'); if (!btn) return;
-        tabsContainer.querySelectorAll('.tab').forEach(function(b){ b.classList.remove('active'); });
-        btn.classList.add('active');
-        var t = btn.getAttribute('data-tab');
-        if (t === 'resident') { respForm.hidden = true; residentForm.hidden = false; }
-        else { respForm.hidden = false; residentForm.hidden = true; }
-      });
-      // Also enable role toggle when switching back
-      tabsContainer.querySelector('#tab-staff').addEventListener('click', function(){
-        if (roleSel && responderWrap) {
-          responderWrap.style.display = (roleSel.value === 'responder') ? '' : 'none';
-        }
-      });
-    }
-    if (roleSel && responderWrap) {
-      var toggleResponder = function(){
-        var isResponder = roleSel.value === 'responder';
-        responderWrap.style.display = isResponder ? '' : 'none';
-      };
-      roleSel.addEventListener('change', toggleResponder);
-      toggleResponder();
-    }
-  })();
-
-  // Ambulance status page logic
+  // ========================================
+  // AMBULANCE STATUS PAGE FUNCTIONALITY
+  // ========================================
+  
+  /**
+   * Ambulance status page logic
+   * Handles ambulance status display and updates (UI only - data from backend)
+   */
   (function setupAmbulance(){
     var grid = document.getElementById('ambulance-grid');
     if (!grid) return;
 
-    function loadAmb(){ try { return JSON.parse(localStorage.getItem('iSagip_ambulances')); } catch(e){ return null; } }
-    function saveAmb(a){ try { localStorage.setItem('iSagip_ambulances', JSON.stringify(a)); } catch(e){} }
-
-    var ambulances = loadAmb() || [
-      { id: 1, name: 'Ambulance 1', status: 'AVAILABLE', location: '' },
-      { id: 2, name: 'Ambulance 2', status: 'IN-USE', location: 'Block 1, Lot 2' },
-      { id: 3, name: 'Ambulance 3', status: 'MAINTENANCE', location: '' }
-    ];
-    saveAmb(ambulances);
+    // Ambulances will be loaded from backend/database
+    var ambulances = [];
 
     function badge(status){
       var color = status === 'AVAILABLE' ? '#16a34a' : status === 'IN-USE' ? '#f59e0b' : '#ef4444';
@@ -674,6 +491,11 @@
     }
 
     function render(){
+      if (ambulances.length === 0) {
+        grid.innerHTML = '<div style="text-align:center;padding:2rem;color:#64748b;">No ambulances available. Data will be loaded from database.</div>';
+        return;
+      }
+      
       grid.innerHTML = ambulances.map(function(a){
         return (
           '<div class="ambulance-card" data-id="'+a.id+'">'+
@@ -689,189 +511,247 @@
         );
       }).join('');
     }
+    
     render();
 
+    // Handle status change buttons
     grid.addEventListener('click', function(e){
       var card = e.target.closest('.ambulance-card');
       if (!card) return;
       var id = parseInt(card.getAttribute('data-id'), 10);
       var amb = ambulances.find(function(x){return x.id===id;});
       if (!amb) return;
-      if (e.target.classList.contains('set-available')) amb.status = 'AVAILABLE';
-      else if (e.target.classList.contains('set-inuse')) amb.status = 'IN-USE';
-      else if (e.target.classList.contains('set-maint')) amb.status = 'MAINTENANCE';
-      if (amb.status !== 'IN-USE') { amb.location = ''; amb.assignmentId = undefined; }
-      saveAmb(ambulances);
+      
+      if (e.target.classList.contains('set-available')) {
+        amb.status = 'AVAILABLE';
+        // TODO: Update status via backend API
+      } else if (e.target.classList.contains('set-inuse')) {
+        amb.status = 'IN-USE';
+        // TODO: Update status via backend API
+      } else if (e.target.classList.contains('set-maint')) {
+        amb.status = 'MAINTENANCE';
+        // TODO: Update status via backend API
+      }
+      
+      if (amb.status !== 'IN-USE') { 
+        amb.location = ''; 
+        amb.assignmentId = undefined; 
+      }
+      
+      // TODO: Save changes to backend instead of re-rendering
       render();
+    });
+    
+    // TODO: Load ambulances from backend/database
+    // Example: fetch('/api/ambulances').then(res => res.json()).then(data => {
+    //   ambulances = data;
+    //   render();
+    // });
+  })();
+
+  // ========================================
+  // STAFF/RESPONDER REGISTRATION
+  // ========================================
+  
+  /**
+   * Handle staff/responder registration form submission
+   * Creates Firebase Auth user and saves data to Firestore
+   */
+  (function setupStaffRegistration() {
+    var registerForm = document.getElementById('register-form');
+    if (!registerForm) return;
+
+    registerForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      // Get form values
+      var role = document.getElementById('reg-role').value;
+      var responderType = document.getElementById('reg-responder-type').value;
+      var username = document.getElementById('reg-username').value.trim();
+      var email = document.getElementById('reg-email').value.trim();
+      var password = document.getElementById('reg-password').value;
+      var password2 = document.getElementById('reg-password2').value;
+      var firstName = document.getElementById('reg-first').value.trim();
+      var middleName = document.getElementById('reg-middle').value.trim();
+      var lastName = document.getElementById('reg-last').value.trim();
+      var age = document.getElementById('reg-age').value.trim();
+      var birthDate = document.getElementById('reg-birth').value.trim();
+      var contact = document.getElementById('reg-contact').value.trim();
+      var address = document.getElementById('reg-address').value.trim();
+
+      // Validation
+      if (!username || !email || !password || !firstName || !lastName || !age || !birthDate || !contact || !address) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+
+      if (password !== password2) {
+        alert('Passwords do not match.');
+        return;
+      }
+
+      if (password.length < 6) {
+        alert('Password must be at least 6 characters long.');
+        return;
+      }
+
+      if (role === 'responder' && !responderType) {
+        alert('Please select responder type.');
+        return;
+      }
+
+      // Check if Firebase is available
+      if (!window.iSagipAuth || !window.iSagipDb) {
+        alert('Firebase is not initialized. Please refresh the page.');
+        return;
+      }
+
+      try {
+        // Import Firebase Auth functions
+        const { createUserWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+        const { doc, setDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+
+        // Create user in Firebase Auth
+        const auth = window.iSagipAuth;
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Prepare user data for Firestore
+        var userData = {
+          uid: user.uid,
+          username: username,
+          email: email,
+          role: role,
+          firstName: firstName,
+          middleName: middleName || '',
+          lastName: lastName,
+          age: parseInt(age) || 0,
+          birthDate: birthDate,
+          contact: contact,
+          address: address,
+          createdAt: serverTimestamp(),
+          status: 'active'
+        };
+
+        // Add responder type if role is responder
+        if (role === 'responder') {
+          userData.responderType = responderType;
+        }
+
+        // Save to Firestore using user.uid as document ID
+        // Save to different collections based on role
+        const db = window.iSagipDb;
+        if (role === 'responder') {
+          // Save responder to 'responder' collection
+          await setDoc(doc(db, 'responder', user.uid), userData);
+        } else if (role === 'barangay_staff') {
+          // Save barangay staff to 'staff' collection
+          await setDoc(doc(db, 'staff', user.uid), userData);
+        } else {
+          // Default fallback (shouldn't happen, but just in case)
+          await setDoc(doc(db, 'staff', user.uid), userData);
+        }
+
+        alert('Registration successful! User has been created.');
+        registerForm.reset();
+
+      } catch (error) {
+        console.error('Registration error:', error);
+        var errorMessage = 'Registration failed. ';
+        if (error.code === 'auth/email-already-in-use') {
+          errorMessage += 'Email is already registered.';
+        } else if (error.code === 'auth/weak-password') {
+          errorMessage += 'Password is too weak.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage += 'Invalid email address.';
+        } else {
+          errorMessage += error.message;
+        }
+        alert(errorMessage);
+      }
     });
   })();
 
-  // Resident management page logic
-  (function setupResidents(){
-    var rows = document.getElementById('res-rows');
-    if (!rows) return;
-
-    var approvalsEl = document.getElementById('res-approvals');
-    var search = document.getElementById('res-search');
-    var statusSel = document.getElementById('res-status');
-
-    // Storage helpers
-    function load(key, fallback){
-      try { var s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; } catch(e){ return fallback; }
-    }
-    function save(key, value){
-      try { localStorage.setItem(key, JSON.stringify(value)); } catch(e){}
-    }
-
-    var residents = load('iSagip_residents', null) || [
-      { username:'john_doe', first:'John', last:'Doe', email:'john@example.com', contact:'1234567890', status:'active', address:'123 Main St', notes:'' },
-      { username:'jane_smith', first:'Jane', last:'Smith', email:'jane@example.com', contact:'2345678901', status:'active', address:'', notes:'' },
-      { username:'maria_lee', first:'Maria', last:'Lee', email:'maria@example.com', contact:'3456789012', status:'active', address:'', notes:'' }
-    ];
-    save('iSagip_residents', residents);
-
-    var pendingUpdates = load('iSagip_pending_updates', null) || [
-      { username:'john_doe', changes:{ email:'john.new@example.com', contact:'1112223333' }, requestedAt:'2025-09-10 09:15 PM' }
-    ];
-    save('iSagip_pending_updates', pendingUpdates);
-
-    function fullName(r){ return r.first + ' ' + r.last; }
-
-    function render(){
-      var q = (search ? search.value.toLowerCase() : '');
-      var filter = statusSel ? statusSel.value : 'all';
-      var list = residents.filter(function(r){
-        var matches = !q || r.username.toLowerCase().includes(q) || fullName(r).toLowerCase().includes(q) || r.email.toLowerCase().includes(q);
-        var statusOk = filter==='all' || (filter==='pending' ? pendingUpdates.some(function(p){return p.username===r.username;}) : r.status===filter);
-        return matches && statusOk;
+  // ========================================
+  // REGISTRATION PAGE TAB SWITCHING (UI ONLY)
+  // ========================================
+  
+  /**
+   * Registration page tab switching
+   * Handles UI tab switching between staff and resident registration forms
+   */
+  (function setupRegisterTabs(){
+    var tabsContainer = document.querySelector('main .tabs');
+    var respForm = document.getElementById('register-form');
+    var residentForm = document.getElementById('resident-register-form');
+    var roleSel = document.getElementById('reg-role');
+    var responderWrap = document.getElementById('reg-responder-type-wrap');
+    
+    if (tabsContainer && respForm && residentForm) {
+      // Ensure initial state: show responder/staff, hide resident
+      respForm.hidden = false;
+      residentForm.hidden = true;
+      
+      tabsContainer.addEventListener('click', function(e){
+        var btn = e.target.closest('.tab');
+        if (!btn) return;
+        tabsContainer.querySelectorAll('.tab').forEach(function(b){ 
+          b.classList.remove('active'); 
+        });
+        btn.classList.add('active');
+        var t = btn.getAttribute('data-tab');
+        if (t === 'resident') { 
+          respForm.hidden = true; 
+          residentForm.hidden = false; 
+        } else { 
+          respForm.hidden = false; 
+          residentForm.hidden = true; 
+        }
       });
-
-      rows.innerHTML = list.map(function(r){
-        return '<div class="t-row" data-u="'+r.username+'">'+
-          '<div>'+r.username+'</div>'+
-          '<div>'+fullName(r)+'</div>'+
-          '<div>'+r.email+'</div>'+
-          '<div>'+r.contact+'</div>'+
-          '<div class="res-actions">'+
-            '<button class="icon-btn edit">✎</button>'+
-            '<button class="icon-btn delete">🗑</button>'+
-            '<button class="icon-btn warn reset">⟲</button>'+
-          '</div>'+
-        '</div>';
-      }).join('');
-
-      approvalsEl.innerHTML = pendingUpdates.map(function(p){
-        var changeList = Object.keys(p.changes).map(function(k){ return '<strong>'+k+':</strong> '+p.changes[k];}).join(', ');
-        return '<div class="t-row" data-u="'+p.username+'">'+
-          '<div>'+p.username+'</div>'+
-          '<div>'+changeList+'</div>'+
-          '<div>'+p.requestedAt+'</div>'+
-          '<div class="res-actions">'+
-            '<button class="icon-btn approve">Approve</button>'+
-            '<button class="icon-btn delete reject">Reject</button>'+
-          '</div>'+
-        '</div>';
-      }).join('');
-    }
-    render();
-
-    if (search) search.addEventListener('input', render);
-    if (statusSel) statusSel.addEventListener('change', render);
-
-    // Edit modal
-    var editModal = document.getElementById('res-edit-modal');
-    var editFirst = document.getElementById('edit-first');
-    var editLast = document.getElementById('edit-last');
-    var editEmail = document.getElementById('edit-email');
-    var editContact = document.getElementById('edit-contact');
-    var editAddress = document.getElementById('edit-address');
-    var editNotes = document.getElementById('edit-notes');
-    var saveBtn = document.getElementById('res-save');
-    var editingUser = null;
-
-    rows.addEventListener('click', function(e){
-      var tr = e.target.closest('.t-row');
-      if (!tr) return;
-      var username = tr.getAttribute('data-u');
-      var r = residents.find(function(x){return x.username===username;});
-      if (!r) return;
-
-      if (e.target.classList.contains('edit')) {
-        editingUser = r;
-        editFirst.value = r.first; editLast.value = r.last; editEmail.value = r.email; editContact.value = r.contact; editAddress.value = r.address||''; editNotes.value = r.notes||'';
-        editModal.hidden = false;
-      } else if (e.target.classList.contains('delete')) {
-        residents = residents.filter(function(x){return x.username!==username;});
-        // Also remove pending updates for this user
-        pendingUpdates = pendingUpdates.filter(function(p){return p.username!==username;});
-        save('iSagip_residents', residents); save('iSagip_pending_updates', pendingUpdates);
-        render();
-      } else if (e.target.classList.contains('reset')) {
-        currentResetUser = r;
-        resetModal.hidden = false;
+      
+      // Enable role toggle when switching back to staff tab
+      var staffTab = tabsContainer.querySelector('#tab-staff');
+      if (staffTab) {
+        staffTab.addEventListener('click', function(){
+          if (roleSel && responderWrap) {
+            responderWrap.style.display = (roleSel.value === 'responder') ? '' : 'none';
+          }
+        });
       }
-    });
-
-    // Save edits
-    if (saveBtn) {
-      saveBtn.addEventListener('click', function(){
-        if (!editingUser) return;
-        editingUser.first = editFirst.value.trim();
-        editingUser.last = editLast.value.trim();
-        editingUser.email = editEmail.value.trim();
-        editingUser.contact = editContact.value.trim();
-        editingUser.address = editAddress.value.trim();
-        editingUser.notes = editNotes.value.trim();
-        editModal.hidden = true;
-        save('iSagip_residents', residents);
-        render();
-      });
     }
-
-    // Reset password modal
-    var resetModal = document.getElementById('res-reset-modal');
-    var resetInput = document.getElementById('reset-pass');
-    var resetBtn = document.getElementById('res-reset');
-    var currentResetUser = null;
-    if (resetBtn) {
-      resetBtn.addEventListener('click', function(){
-        // In real app: call API; here we just close modal
-        resetModal.hidden = true; resetInput.value = '';
-      });
+    
+    // Role selector toggle for responder type
+    if (roleSel && responderWrap) {
+      var toggleResponder = function(){
+        var isResponder = roleSel.value === 'responder';
+        responderWrap.style.display = isResponder ? '' : 'none';
+      };
+      roleSel.addEventListener('change', toggleResponder);
+      toggleResponder();
     }
+  })();
 
-    // Approvals
-    approvalsEl.addEventListener('click', function(e){
-      var tr = e.target.closest('.t-row');
-      if (!tr) return;
-      var username = tr.getAttribute('data-u');
-      var idx = pendingUpdates.findIndex(function(p){return p.username===username;});
-      if (idx === -1) return;
-      if (e.target.classList.contains('approve')) {
-        var p = pendingUpdates[idx];
-        var r = residents.find(function(x){return x.username===username;});
-        if (r) Object.assign(r, p.changes);
-        pendingUpdates.splice(idx,1);
-        save('iSagip_residents', residents); save('iSagip_pending_updates', pendingUpdates);
-        render();
-      } else if (e.target.classList.contains('reject')) {
-        pendingUpdates.splice(idx,1);
-        save('iSagip_pending_updates', pendingUpdates);
-        render();
-      }
-    });
-
-    // Close modals
+  // ========================================
+  // GLOBAL MODAL CLOSE HANDLERS
+  // ========================================
+  
+  /**
+   * Global modal close functionality
+   * Closes modals when clicking outside or on close buttons
+   */
     document.addEventListener('click', function(e){
+    // Close modals when clicking close button
       if (e.target.matches('[data-close]')) {
-        editModal && (editModal.hidden = true);
-        resetModal && (resetModal.hidden = true);
+      var modal = e.target.closest('.modal');
+      if (modal) {
+        modal.hidden = true;
       }
+    }
+    // Close modals when clicking outside
       if (e.target.classList.contains('modal')) {
         e.target.hidden = true;
       }
     });
-  })();
 
   // ========================================
   // GLOBAL DARK MODE INITIALIZATION
@@ -896,7 +776,7 @@
   
   /**
    * Initialize settings page functionality
-   * Handles dark mode toggle, password change, and role display
+   * Handles dark mode toggle, password change modal, and role display
    */
   (function initializeSettingsPage() {
     // Check if we're on the settings page
@@ -978,79 +858,21 @@
   function navigateWithFade(url){
     // Guard: if user prefers reduced motion, skip transition
     var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) { window.location.href = url; return; }
+    if (prefersReduced) { 
+      window.location.href = url; 
+      return; 
+    }
 
     document.body.classList.remove('page-enter');
     document.body.classList.add('page-leave');
-    setTimeout(function(){ window.location.href = url; }, 180);
+    setTimeout(function(){ 
+      window.location.href = url; 
+    }, 180);
   }
-
-  // ========================================
-  // OPTIONAL: FIREBASE INTEGRATION LAYER (NO-OP SAFE)
-  // ========================================
-  var Firebase = (function(){
-    var app = null;
-    var db = null;
-
-    function hasSdk(){ return typeof window !== 'undefined' && !!(window.firebase && (window.firebase.initializeApp || (window.firebase.app && window.firebase.app()))); }
-    function hasConfig(){ return typeof window !== 'undefined' && !!window.iSagipFirebaseConfig; }
-    function isEnabled(){ try { return localStorage.getItem('iSagip_useFirebase') === 'true'; } catch(e){ return false; } }
-
-    function init(){
-      if (!hasSdk() || !hasConfig()) return false;
-      try {
-        // Compat style initialization (works with v8/v9 compat)
-        if (!window.firebase.apps || !window.firebase.apps.length) {
-          app = window.firebase.initializeApp(window.iSagipFirebaseConfig);
-        } else {
-          app = window.firebase.app();
-        }
-        db = window.firebase.firestore ? window.firebase.firestore() : (window.firebase.firestore && window.firebase.firestore.getFirestore ? window.firebase.firestore.getFirestore() : null);
-        return true;
-      } catch(e){ console.log('Firebase init failed:', e); return false; }
-    }
-
-    function getDb(){ return db; }
-
-    return { isAvailable: function(){ return hasSdk() && hasConfig(); }, init: init, getDb: getDb };
-  })();
-
-  // Example data API wrapping Firestore reads/writes if available
-  var ReportsAPI = (function(){
-    function onNewReports(callback){
-      var db = Firebase.getDb();
-      if (!db || !db.collection) return function(){}; // no-op unsubscribe
-      try {
-        var unsub = db.collection('reports').orderBy('timestamp','desc').limit(20).onSnapshot(function(snap){
-          var list = [];
-          snap.forEach(function(doc){ var d = doc.data(); d.id = d.id || doc.id; list.push(d); });
-          callback(list);
-        });
-        return unsub;
-      } catch(e){ console.log('onNewReports error:', e); return function(){}; }
-    }
-
-    function add(report){
-      var db = Firebase.getDb();
-      if (!db || !db.collection) return Promise.resolve(false);
-      try { return db.collection('reports').add(report); } catch(e){ console.log('add report error:', e); return Promise.resolve(false); }
-    }
-
-    return { onNewReports: onNewReports, add: add };
-  })();
-
-  // Auto-init Firebase if SDK+config present or flag set
-  (function maybeInitFirebase(){
-    try {
-      if ((window.iSagipFirebaseConfig && window.firebase) || localStorage.getItem('iSagip_useFirebase')==='true') {
-        Firebase.init();
-      }
-    } catch(e){}
-  })();
 
   /**
    * Initialize password change functionality
-   * Handles modal opening/closing and form submission
+   * Handles modal opening/closing (form submission will be handled by backend)
    */
   function initializePasswordChange() {
     const changePasswordBtn = document.getElementById('change-password-btn');
@@ -1067,8 +889,12 @@
     });
     
     // Close modal when close button is clicked
+    if (closeModalBtn) {
     closeModalBtn.addEventListener('click', closePasswordModal);
+    }
+    if (cancelBtn) {
     cancelBtn.addEventListener('click', closePasswordModal);
+    }
     
     // Close modal when clicking outside
     changePasswordModal.addEventListener('click', function(e) {
@@ -1077,44 +903,22 @@
       }
     });
     
-    // Handle form submission
-    passwordForm.addEventListener('submit', handlePasswordChange);
+    // Handle form submission (backend integration needed)
+    if (passwordForm) {
+      passwordForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        // TODO: Implement password change with backend API
+        // For now, just close modal
+        closePasswordModal();
+      });
+    }
     
     function closePasswordModal() {
       changePasswordModal.hidden = true;
+      if (passwordForm) {
       passwordForm.reset();
     }
   }
-
-  /**
-   * Handle password change form submission
-   * @param {Event} e - Form submit event
-   */
-  function handlePasswordChange(e) {
-    e.preventDefault();
-    
-    const currentPassword = document.getElementById('current-password').value;
-    const newPassword = document.getElementById('new-password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
-    
-    // Validate passwords
-    if (newPassword !== confirmPassword) {
-      alert('New passwords do not match. Please try again.');
-      return;
-    }
-    
-    if (newPassword.length < 6) {
-      alert('New password must be at least 6 characters long.');
-      return;
-    }
-    
-    // TODO: Implement actual password change logic with backend
-    // For now, just show success message
-    alert('Password changed successfully!');
-    
-    // Close modal and reset form
-    document.getElementById('change-password-modal').hidden = true;
-    e.target.reset();
   }
 
   /**
@@ -1136,276 +940,653 @@
   }
 
   // ========================================
-  // NOTIFICATION SYSTEM
+  // RESIDENT MANAGEMENT - REGISTRATION REVIEW
   // ========================================
   
   /**
-   * Initialize notification system for Barangay Staff
-   * Handles new report notifications with sound and visual alerts
+   * Initialize resident management page
+   * Handles pending registration requests review and approved residents management
    */
-  (function initializeNotificationSystem() {
-    // Only initialize for Barangay Staff users
-    const userRole = localStorage.getItem('iSagip_userRole');
-    if (userRole !== 'barangay_staff') return;
-    
-    // Initialize notification container
-    initializeNotificationContainer();
-    
-    // Start simulating new reports (for demo purposes)
-    // TODO: Replace with real-time backend integration
-    startReportSimulation();
-  })();
+  (function initializeResidentManagement() {
+    // Check if we're on the resident management page
+    if (!document.getElementById('pending-requests')) return;
 
-  /**
-   * Initialize notification container and event handlers
-   */
-  function initializeNotificationContainer() {
-    const container = document.getElementById('notification-container');
-    if (!container) return;
-    
-    // Handle notification close events
-    container.addEventListener('click', function(e) {
-      if (e.target.classList.contains('notification-close')) {
-        const notification = e.target.closest('.notification');
-        if (notification) {
-          removeNotification(notification);
+    let pendingRequests = [];
+    let approvedResidents = [];
+    let currentReviewRequest = null;
+
+    // Initialize Firebase imports
+    let db, collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, 
+        setDoc, serverTimestamp, orderBy, Timestamp, ref, getDownloadURL, storage;
+
+    // Load Firebase functions - wait for Firebase to be ready
+    async function loadFirebase() {
+      // Wait for Firebase to initialize
+      if (!window.iSagipDb) {
+        // If Firebase isn't ready yet, wait for the event
+        await new Promise((resolve) => {
+          if (window.iSagipDb) {
+            resolve();
+            return;
+          }
+          window.addEventListener('firebaseReady', resolve, { once: true });
+          // Fallback timeout after 5 seconds
+          setTimeout(() => {
+            if (!window.iSagipDb) {
+              console.error('Firebase initialization timeout');
+              resolve();
+            }
+          }, 5000);
+        });
+      }
+
+      if (!window.iSagipDb) {
+        console.error('Firebase not initialized');
+        return;
+      }
+
+      const firestore = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+      const storageModule = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-storage.js");
+      
+      db = window.iSagipDb;
+      collection = firestore.collection;
+      query = firestore.query;
+      where = firestore.where;
+      getDocs = firestore.getDocs;
+      doc = firestore.doc;
+      getDoc = firestore.getDoc;
+      updateDoc = firestore.updateDoc;
+      deleteDoc = firestore.deleteDoc;
+      setDoc = firestore.setDoc;
+      serverTimestamp = firestore.serverTimestamp;
+      orderBy = firestore.orderBy;
+      Timestamp = firestore.Timestamp;
+      
+      storage = storageModule.getStorage(window.iSagipApp);
+      ref = storageModule.ref;
+      getDownloadURL = storageModule.getDownloadURL;
+
+      // Load data
+      loadPendingRequests();
+      loadApprovedResidents();
+    }
+
+    // Start loading when page is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadFirebase);
+    } else {
+      // If Firebase is already ready, load immediately
+      if (window.iSagipDb) {
+        loadFirebase();
+      } else {
+        // Otherwise wait for the firebaseReady event
+        window.addEventListener('firebaseReady', loadFirebase, { once: true });
+      }
+    }
+
+    /**
+     * Load pending registration requests from Firestore
+     */
+    async function loadPendingRequests() {
+      if (!db) {
+        console.error('Database not available');
+        return;
+      }
+      
+      console.log('Loading pending requests...');
+      
+      try {
+        const requestsRef = collection(db, 'resident_requests');
+        console.log('Collection reference created');
+        
+        // Try with orderBy first
+        let q;
+        let snapshot;
+        
+        try {
+          q = query(requestsRef, where('status', '==', 'pending'), orderBy('requestedAt', 'desc'));
+          snapshot = await getDocs(q);
+          console.log('Query with orderBy successful, found:', snapshot.size, 'documents');
+        } catch (orderByError) {
+          console.warn('OrderBy failed, trying without orderBy:', orderByError);
+          // If orderBy fails (missing index), try without it
+          q = query(requestsRef, where('status', '==', 'pending'));
+          snapshot = await getDocs(q);
+          console.log('Query without orderBy successful, found:', snapshot.size, 'documents');
         }
+        
+        pendingRequests = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          console.log('Document found:', docSnap.id, data);
+          pendingRequests.push({
+            id: docSnap.id,
+            ...data
+          });
+        });
+        
+        console.log('Total pending requests loaded:', pendingRequests.length);
+        
+        // If we loaded without orderBy, sort manually
+        if (pendingRequests.length > 0) {
+          pendingRequests.sort((a, b) => {
+            const dateA = a.requestedAt?.toDate?.() || new Date(0);
+            const dateB = b.requestedAt?.toDate?.() || new Date(0);
+            return dateB - dateA; // Descending
+          });
+        }
+        
+        renderPendingRequests();
+      } catch (error) {
+        console.error('Error loading pending requests:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
+        
+        // Show error in UI
+        const container = document.getElementById('pending-requests');
+        const emptyState = document.getElementById('pending-empty');
+        
+        if (container) {
+          container.innerHTML = `
+            <div class="t-row" style="grid-column: 1/-1; padding: 2rem; text-align: center;">
+              <div style="color: #ef4444;">
+                <strong>Error loading requests</strong><br/>
+                ${error.message || 'Unknown error'}<br/>
+                <small style="color: var(--muted); margin-top: 8px; display: block;">
+                  Check console (F12) for details
+                </small>
+              </div>
+            </div>
+          `;
+        }
+        
+        if (emptyState) emptyState.style.display = 'none';
+        
+        pendingRequests = [];
+      }
+    }
+
+    /**
+     * Render pending requests in the table
+     */
+    function renderPendingRequests() {
+      const container = document.getElementById('pending-requests');
+      const emptyState = document.getElementById('pending-empty');
+      
+      if (!container) {
+        console.error('Container not found');
+        return;
+      }
+
+      console.log('Rendering', pendingRequests.length, 'pending requests');
+
+      // Apply search filter
+      const searchTerm = document.getElementById('pending-search')?.value.toLowerCase() || '';
+      const sortBy = document.getElementById('pending-sort')?.value || 'newest';
+      
+      let filtered = pendingRequests.filter(req => {
+        const name = `${req.firstName || ''} ${req.lastName || ''}`.toLowerCase();
+        const email = (req.email || '').toLowerCase();
+        const username = (req.username || '').toLowerCase();
+        return name.includes(searchTerm) || email.includes(searchTerm) || username.includes(searchTerm);
+      });
+
+      console.log('After filtering:', filtered.length, 'requests');
+
+      // Apply sorting
+      if (sortBy === 'oldest') {
+        filtered.sort((a, b) => {
+          const dateA = a.requestedAt?.toDate?.() || new Date(0);
+          const dateB = b.requestedAt?.toDate?.() || new Date(0);
+          return dateA - dateB;
+        });
+      } else if (sortBy === 'name') {
+        filtered.sort((a, b) => {
+          const nameA = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
+          const nameB = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        if (emptyState) {
+          emptyState.style.display = 'block';
+          console.log('No requests to display, showing empty state');
+        }
+        return;
+      }
+
+      if (emptyState) emptyState.style.display = 'none';
+
+      console.log('Rendering', filtered.length, 'filtered requests to table');
+
+      container.innerHTML = filtered.map(req => {
+        const requestDate = req.requestedAt?.toDate?.() || new Date();
+        const dateStr = requestDate.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        });
+        const hasId = req.idDocumentUrl || req.idDocumentPath;
+        
+        return `
+          <div class="t-row" data-request-id="${req.id}">
+            <div>${dateStr}</div>
+            <div>${req.firstName || ''} ${req.middleName || ''} ${req.lastName || ''}</div>
+            <div>${req.email || 'N/A'}</div>
+            <div>${req.contact || 'N/A'}</div>
+            <div>${hasId ? '<span style="color: #10b981;">✓ Yes</span>' : '<span style="color: #ef4444;">✗ No</span>'}</div>
+            <div>
+              <button class="btn btn-small btn-primary review-btn" data-request-id="${req.id}">Review</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Attach event listeners
+      container.querySelectorAll('.review-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const requestId = this.getAttribute('data-request-id');
+          openReviewModal(requestId);
+        });
+      });
+      
+      console.log('Table rendered successfully');
+    }
+
+    /**
+     * Load approved residents from Firestore
+     */
+    async function loadApprovedResidents() {
+      if (!db) return;
+      
+      try {
+        const residentsRef = collection(db, 'residents');
+        const q = query(residentsRef, orderBy('approvedAt', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        approvedResidents = [];
+        snapshot.forEach((docSnap) => {
+          approvedResidents.push({
+            id: docSnap.id,
+            ...docSnap.data()
+          });
+        });
+        
+        renderApprovedResidents();
+      } catch (error) {
+        console.error('Error loading approved residents:', error);
+        approvedResidents = [];
+        renderApprovedResidents();
+      }
+    }
+
+    /**
+     * Render approved residents in the table
+     */
+    function renderApprovedResidents() {
+      const container = document.getElementById('approved-residents');
+      const emptyState = document.getElementById('approved-empty');
+      
+      if (!container) return;
+
+      // Apply filters
+      const searchTerm = document.getElementById('approved-search')?.value.toLowerCase() || '';
+      const statusFilter = document.getElementById('approved-status')?.value || 'all';
+      
+      let filtered = approvedResidents.filter(res => {
+        const name = `${res.firstName || ''} ${res.lastName || ''}`.toLowerCase();
+        const email = (res.email || '').toLowerCase();
+        const username = (res.username || '').toLowerCase();
+        const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm) || username.includes(searchTerm);
+        const matchesStatus = statusFilter === 'all' || res.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+      }
+
+      if (emptyState) emptyState.style.display = 'none';
+
+      container.innerHTML = filtered.map(res => {
+        const statusBadge = res.status === 'active' 
+          ? '<span style="color: #10b981; font-weight: 600;">Active</span>'
+          : '<span style="color: #ef4444; font-weight: 600;">Inactive</span>';
+        
+        return `
+          <div class="t-row" data-resident-id="${res.id}">
+            <div>${res.username || 'N/A'}</div>
+            <div>${res.firstName || ''} ${res.middleName || ''} ${res.lastName || ''}</div>
+            <div>${res.email || 'N/A'}</div>
+            <div>${res.contact || 'N/A'}</div>
+            <div>${statusBadge}</div>
+            <div>
+              <button class="btn btn-small btn-outline edit-resident-btn" data-resident-id="${res.id}">Edit</button>
+              <button class="btn btn-small btn-outline reset-password-btn" data-resident-id="${res.id}">Reset Password</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Attach event listeners
+      container.querySelectorAll('.edit-resident-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const residentId = this.getAttribute('data-resident-id');
+          openEditModal(residentId);
+        });
+      });
+
+      container.querySelectorAll('.reset-password-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const residentId = this.getAttribute('data-resident-id');
+          openResetPasswordModal(residentId);
+        });
+      });
+    }
+
+    /**
+     * Open review modal for a registration request
+     */
+    async function openReviewModal(requestId) {
+      if (!db) return;
+      
+      const request = pendingRequests.find(r => r.id === requestId);
+      if (!request) {
+        alert('Request not found');
+        return;
+      }
+
+      currentReviewRequest = request;
+      const modal = document.getElementById('review-modal');
+      if (!modal) return;
+
+      // Populate form fields
+      document.getElementById('review-username').value = request.username || '';
+      document.getElementById('review-email').value = request.email || '';
+      document.getElementById('review-name').value = `${request.firstName || ''} ${request.middleName || ''} ${request.lastName || ''}`.trim();
+      document.getElementById('review-gender').value = request.gender || 'N/A';
+      document.getElementById('review-birth').value = request.birthDate || 'N/A';
+      document.getElementById('review-contact').value = request.contact || 'N/A';
+      document.getElementById('review-address').value = request.address || 'N/A';
+      
+      const requestDate = request.requestedAt?.toDate?.() || new Date();
+      document.getElementById('review-date').value = requestDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      // Load ID document
+      const idPreview = document.getElementById('id-preview');
+      const idPlaceholder = document.getElementById('id-placeholder');
+      const idFullscreenImg = document.getElementById('id-fullscreen-img');
+      
+      if (request.idDocumentUrl) {
+        idPreview.src = request.idDocumentUrl;
+        idPreview.style.display = 'block';
+        if (idPlaceholder) idPlaceholder.style.display = 'none';
+        if (idFullscreenImg) idFullscreenImg.src = request.idDocumentUrl;
+      } else if (request.idDocumentPath && storage) {
+        try {
+          const storageRef = ref(storage, request.idDocumentPath);
+          const url = await getDownloadURL(storageRef);
+          idPreview.src = url;
+          idPreview.style.display = 'block';
+          if (idPlaceholder) idPlaceholder.style.display = 'none';
+          if (idFullscreenImg) idFullscreenImg.src = url;
+        } catch (error) {
+          console.error('Error loading ID document:', error);
+          idPreview.style.display = 'none';
+          if (idPlaceholder) idPlaceholder.style.display = 'block';
+        }
+      } else {
+        idPreview.style.display = 'none';
+        if (idPlaceholder) idPlaceholder.style.display = 'block';
+      }
+
+      modal.hidden = false;
+    }
+
+    /**
+     * Approve a registration request
+     */
+    async function approveRequest() {
+      if (!currentReviewRequest || !db) return;
+
+      if (!confirm('Are you sure you want to approve this registration request?')) {
+        return;
+      }
+
+      try {
+        const { createUserWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+        const auth = window.iSagipAuth;
+
+        // Create Firebase Auth user
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          currentReviewRequest.email,
+          currentReviewRequest.password || 'TempPassword123!' // In production, generate a secure temp password
+        );
+        const user = userCredential.user;
+
+        // Save to residents collection
+        const residentData = {
+          uid: user.uid,
+          username: currentReviewRequest.username,
+          email: currentReviewRequest.email,
+          firstName: currentReviewRequest.firstName,
+          middleName: currentReviewRequest.middleName || '',
+          lastName: currentReviewRequest.lastName,
+          gender: currentReviewRequest.gender,
+          birthDate: currentReviewRequest.birthDate,
+          contact: currentReviewRequest.contact,
+          address: currentReviewRequest.address,
+          idDocumentUrl: currentReviewRequest.idDocumentUrl || '',
+          idDocumentPath: currentReviewRequest.idDocumentPath || '',
+          status: 'active',
+          approvedAt: serverTimestamp(),
+          approvedBy: localStorage.getItem('iSagip_userUID') || '',
+          createdAt: serverTimestamp()
+        };
+
+        await setDoc(doc(db, 'residents', user.uid), residentData);
+
+        // Update request status
+        await updateDoc(doc(db, 'resident_requests', currentReviewRequest.id), {
+          status: 'approved',
+          approvedAt: serverTimestamp(),
+          approvedBy: localStorage.getItem('iSagip_userUID') || ''
+        });
+
+        alert('Registration request approved successfully!');
+        
+        // Close modal and reload data
+        document.getElementById('review-modal').hidden = true;
+        currentReviewRequest = null;
+        loadPendingRequests();
+        loadApprovedResidents();
+      } catch (error) {
+        console.error('Error approving request:', error);
+        alert('Error approving request: ' + (error.message || 'Unknown error'));
+      }
+    }
+
+    /**
+     * Reject a registration request
+     */
+    async function rejectRequest() {
+      if (!currentReviewRequest || !db) return;
+
+      const reason = prompt('Please provide a reason for rejection (optional):');
+      if (reason === null) return; // User cancelled
+
+      if (!confirm('Are you sure you want to reject this registration request?')) {
+        return;
+      }
+
+      try {
+        await updateDoc(doc(db, 'resident_requests', currentReviewRequest.id), {
+          status: 'rejected',
+          rejectedAt: serverTimestamp(),
+          rejectedBy: localStorage.getItem('iSagip_userUID') || '',
+          rejectionReason: reason || ''
+        });
+
+        alert('Registration request rejected.');
+        
+        // Close modal and reload data
+        document.getElementById('review-modal').hidden = true;
+        currentReviewRequest = null;
+        loadPendingRequests();
+      } catch (error) {
+        console.error('Error rejecting request:', error);
+        alert('Error rejecting request: ' + (error.message || 'Unknown error'));
+      }
+    }
+
+    /**
+     * Open edit modal for approved resident
+     */
+    function openEditModal(residentId) {
+      const resident = approvedResidents.find(r => r.id === residentId);
+      if (!resident) {
+        alert('Resident not found');
+        return;
+      }
+
+      const modal = document.getElementById('res-edit-modal');
+      if (!modal) return;
+
+      document.getElementById('edit-first').value = resident.firstName || '';
+      document.getElementById('edit-last').value = resident.lastName || '';
+      document.getElementById('edit-email').value = resident.email || '';
+      document.getElementById('edit-contact').value = resident.contact || '';
+      document.getElementById('edit-address').value = resident.address || '';
+      document.getElementById('edit-status').value = resident.status || 'active';
+
+      modal.hidden = false;
+      modal.dataset.residentId = residentId;
+    }
+
+    /**
+     * Open reset password modal
+     */
+    function openResetPasswordModal(residentId) {
+      const modal = document.getElementById('res-reset-modal');
+      if (!modal) return;
+
+      modal.hidden = false;
+      modal.dataset.residentId = residentId;
+    }
+
+    // Event listeners
+    document.getElementById('approve-request')?.addEventListener('click', approveRequest);
+    document.getElementById('reject-request')?.addEventListener('click', rejectRequest);
+    
+    document.getElementById('view-id-fullscreen')?.addEventListener('click', function() {
+      const fullscreenModal = document.getElementById('id-fullscreen-modal');
+      if (fullscreenModal) fullscreenModal.hidden = false;
+    });
+
+    document.getElementById('download-id')?.addEventListener('click', function() {
+      if (currentReviewRequest?.idDocumentUrl) {
+        const link = document.createElement('a');
+        link.href = currentReviewRequest.idDocumentUrl;
+        link.download = `id_${currentReviewRequest.username || 'document'}.jpg`;
+        link.click();
+      } else {
+        alert('ID document URL not available');
       }
     });
-  }
 
-  /**
-   * Show a new report notification
-   * @param {Object} reportData - Report data object
-   */
-  function showNewReportNotification(reportData) {
-    const container = document.getElementById('notification-container');
-    if (!container) return;
-    
-    // Create notification element
-    const notification = createNotificationElement(reportData);
-    
-    // Add to container
-    container.appendChild(notification);
-    
-    // Show notification with animation
-    setTimeout(() => {
-      notification.classList.add('show');
-    }, 100);
-    
-    // Play notification sound
-    playNotificationSound();
-    
-    // Show sound indicator
-    showSoundIndicator();
-    
-    // Auto-remove after 10 seconds
-    setTimeout(() => {
-      removeNotification(notification);
-    }, 10000);
-  }
+    // Search and filter listeners
+    document.getElementById('pending-search')?.addEventListener('input', renderPendingRequests);
+    document.getElementById('pending-sort')?.addEventListener('change', renderPendingRequests);
+    document.getElementById('approved-search')?.addEventListener('input', renderApprovedResidents);
+    document.getElementById('approved-status')?.addEventListener('change', renderApprovedResidents);
 
-  /**
-   * Create notification element HTML
-   * @param {Object} reportData - Report data
-   * @returns {HTMLElement} - Notification element
-   */
-  function createNotificationElement(reportData) {
-    const notification = document.createElement('div');
-    notification.className = 'notification emergency';
-    
-    const currentTime = new Date().toLocaleTimeString();
-    
-    notification.innerHTML = `
-      <div class="notification-header">
-        <div class="notification-title">🚨 New Emergency Report</div>
-        <button class="notification-close">&times;</button>
-      </div>
-      <div class="notification-body">
-        <strong>Report ID:</strong> ${reportData.id}<br>
-        <strong>Description:</strong> ${reportData.description}<br>
-        <strong>Location:</strong> ${reportData.street}<br>
-        <strong>Reported by:</strong> ${reportData.reportedBy}
-      </div>
-      <div class="notification-time">${currentTime}</div>
-    `;
-    
-    return notification;
-  }
+    // Save resident edit
+    document.getElementById('res-save')?.addEventListener('click', async function() {
+      const modal = document.getElementById('res-edit-modal');
+      const residentId = modal?.dataset.residentId;
+      if (!residentId || !db) return;
 
-  /**
-   * Remove notification with animation
-   * @param {HTMLElement} notification - Notification element to remove
-   */
-  function removeNotification(notification) {
-    notification.classList.remove('show');
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
+      try {
+        const updates = {
+          firstName: document.getElementById('edit-first').value,
+          lastName: document.getElementById('edit-last').value,
+          email: document.getElementById('edit-email').value,
+          contact: document.getElementById('edit-contact').value,
+          address: document.getElementById('edit-address').value,
+          status: document.getElementById('edit-status').value,
+          updatedAt: serverTimestamp()
+        };
+
+        await updateDoc(doc(db, 'residents', residentId), updates);
+        alert('Resident updated successfully!');
+        modal.hidden = true;
+        loadApprovedResidents();
+      } catch (error) {
+        console.error('Error updating resident:', error);
+        alert('Error updating resident: ' + (error.message || 'Unknown error'));
       }
-    }, 300);
-  }
+    });
 
-  /**
-   * Play notification sound
-   * Uses Web Audio API to generate a notification sound
-   */
-  function playNotificationSound() {
-    try {
-      // Create audio context
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
-      // Create oscillator for notification sound
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      // Connect nodes
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      // Configure sound (emergency notification tone)
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
-      
-      // Configure volume
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
-      
-      // Play sound
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (error) {
-      console.log('Could not play notification sound:', error);
-    }
-  }
+    // Reset password
+    document.getElementById('res-reset')?.addEventListener('click', async function() {
+      const modal = document.getElementById('res-reset-modal');
+      const residentId = modal?.dataset.residentId;
+      const newPassword = document.getElementById('reset-pass').value;
 
-  /**
-   * Show sound indicator
-   * Displays a temporary indicator that sound was played
-   */
-  function showSoundIndicator() {
-    const indicator = document.getElementById('sound-indicator');
-    if (!indicator) return;
-    
-    indicator.classList.add('show');
-    
-    setTimeout(() => {
-      indicator.classList.remove('show');
-    }, 2000);
-  }
+      if (!newPassword || newPassword.length < 6) {
+        alert('Password must be at least 6 characters long.');
+        return;
+      }
 
-  /**
-   * Start report simulation for demo purposes
-   * TODO: Replace with real-time backend integration
-   */
-  function startReportSimulation() {
-    // Simulate new reports every 30-60 seconds
-    const simulateNewReport = () => {
-      const mockReports = [
-        {
-          id: 'REP-' + Date.now(),
-          description: 'Kitchen fire, smoke visible',
-          street: 'Block 3, Lot 5',
-          reportedBy: 'Alice Johnson'
-        },
-        {
-          id: 'REP-' + Date.now(),
-          description: 'Medical emergency - chest pain',
-          street: 'Block 1, Lot 12',
-          reportedBy: 'Bob Smith'
-        },
-        {
-          id: 'REP-' + Date.now(),
-          description: 'Suspicious activity reported',
-          street: 'Block 2, Lot 8',
-          reportedBy: 'Carol Davis'
-        },
-        {
-          id: 'REP-' + Date.now(),
-          description: 'Child with high fever',
-          street: 'Block 4, Lot 3',
-          reportedBy: 'David Wilson'
+      if (!residentId) {
+        alert('Resident ID not found');
+        return;
+      }
+
+      try {
+        const resident = approvedResidents.find(r => r.id === residentId);
+        if (!resident || !resident.uid) {
+          alert('Resident UID not found');
+          return;
         }
-      ];
-      
-      // Pick random report
-      const randomReport = mockReports[Math.floor(Math.random() * mockReports.length)];
-      
-      // Show notification
-      showNewReportNotification(randomReport);
-      
-      // Update reports table if on reports page
-      updateReportsTable(randomReport);
-      
-      // Schedule next simulation
-      const nextDelay = Math.random() * 30000 + 30000; // 30-60 seconds
-      setTimeout(simulateNewReport, nextDelay);
-    };
-    
-    // Start first simulation after 10 seconds
-    setTimeout(simulateNewReport, 10000);
-  }
 
-  /**
-   * Initialize test notification button for demo purposes
-   */
-  (function initializeTestNotificationButton() {
-    const testBtn = document.getElementById('test-notification-btn');
-    if (!testBtn) return;
-    
-    testBtn.addEventListener('click', function() {
-      // Create a test notification
-      const testReport = {
-        id: 'TEST-' + Date.now(),
-        description: 'Test emergency notification',
-        street: 'Test Location',
-        reportedBy: 'System Test'
-      };
-      
-      showNewReportNotification(testReport);
+        // Note: In production, you would need to use Firebase Admin SDK or a Cloud Function
+        // to reset passwords, as client SDK doesn't allow password changes for other users
+        alert('Password reset functionality requires backend implementation. Please use Firebase Admin SDK or Cloud Functions.');
+        
+        modal.hidden = true;
+        document.getElementById('reset-pass').value = '';
+      } catch (error) {
+        console.error('Error resetting password:', error);
+        alert('Error resetting password: ' + (error.message || 'Unknown error'));
+      }
     });
   })();
 
-  /**
-   * Update reports table with new report
-   * @param {Object} newReport - New report data
-   */
-  function updateReportsTable(newReport) {
-    // Check if we're on the reports page
-    if (!document.getElementById('reports-rows')) return;
-    
-    // Get existing reports from localStorage or use default
-    let reports = JSON.parse(localStorage.getItem('iSagip_reports')) || [
-      { id: 'REP-2024-001', description: 'Kitchen fire, smoke visible', status: 'Ongoing', street: 'Block 3, Lot 5', landmark: 'Beside Barangay Hall', reportedBy: 'Alice', timestamp: '2024-03-20 10:15 AM', responseTime: '20 minutes', closedBy: '', updatedBy: '', updatedAt: '', notes: '' },
-      { id: 'REP-2024-002', description: 'Suspicious activity reported', status: 'Pending', street: 'Block 2, Lot 1', landmark: 'Near parking Lot', reportedBy: 'Bob', timestamp: '2024-03-20 09:45 AM', responseTime: 'N/A', closedBy: '', updatedBy: '', updatedAt: '', notes: '' },
-      { id: 'REP-2024-003', description: 'Child with high fever', status: 'Pending', street: 'Block 4, Lot 7', landmark: 'Green Gate 2 floors house', reportedBy: 'Carol', timestamp: '2024-03-21 08:10 AM', responseTime: 'N/A', closedBy: '', updatedBy: '', updatedAt: '', notes: '' }
-    ];
-    
-    // Add new report to the beginning of the array
-    const reportWithTimestamp = {
-      ...newReport,
-      status: 'Pending',
-      landmark: 'Near reported location',
-      timestamp: new Date().toLocaleString(),
-      responseTime: 'N/A',
-      closedBy: '',
-      updatedBy: '',
-      updatedAt: '',
-      notes: ''
-    };
-    
-    reports.unshift(reportWithTimestamp);
-    
-    // Save updated reports
-    localStorage.setItem('iSagip_reports', JSON.stringify(reports));
-    
-    // Re-render the table
-    if (typeof renderReportsTable === 'function') {
-      renderReportsTable();
-    }
-  }
-})();
+  // ========================================
+  // FIREBASE ACCESS
+  // ========================================
+  // Firebase is initialized in HTML file (dashboard.html, etc.)
+  // Access Firebase services via:
+  // - window.iSagipDb (Firestore database)
+  // - window.iSagipAuth (Authentication)
+  // - window.iSagipApp (Firebase app instance)
+  // - window.iSagipAnalytics (Analytics)
+  //
+  // Example usage:
+  // const db = window.iSagipDb;
+  // db.collection('reports').get().then(...)
 
+  })();
 
