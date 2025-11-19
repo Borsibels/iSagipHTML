@@ -1575,6 +1575,395 @@
   })();
 
   // ========================================
+  // REPORTS PAGE - REALTIME DATABASE FEED
+  // ========================================
+  (function initializeRealtimeReportsPage() {
+    const reportsTable = document.getElementById('reports-rows');
+    if (!reportsTable) return;
+
+    const stats = {
+      total: document.getElementById('r-total'),
+      resolved: document.getElementById('r-resolved'),
+      active: document.getElementById('r-active'),
+      average: document.getElementById('r-avg'),
+    };
+
+    const detailsModal = document.getElementById('modal-details');
+    const detailsContent = document.getElementById('details-content');
+    const manageModal = document.getElementById('modal-manage-report');
+    const manageForm = document.getElementById('manage-report-form');
+    const manageReportIdInput = document.getElementById('manage-report-id');
+    const manageStatusSelect = document.getElementById('manage-status');
+    const manageVehicleInput = document.getElementById('manage-vehicle');
+    const manageNotesInput = document.getElementById('manage-notes');
+
+    const REALTIME_DB_URL = 'https://isagip-752d1-default-rtdb.asia-southeast1.firebasedatabase.app';
+    let realtimeDb = null;
+    let databaseModule = null;
+    let reports = [];
+    let rawReports = {};
+
+    init();
+
+    async function init() {
+      try {
+        await ensureFirebaseReady();
+        databaseModule = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js");
+        realtimeDb = databaseModule.getDatabase(window.iSagipApp, REALTIME_DB_URL);
+
+        const { ref, onValue } = databaseModule;
+        const reportsRef = ref(realtimeDb, 'reports');
+        onValue(
+          reportsRef,
+          (snapshot) => {
+            const value = snapshot.val() || {};
+            rawReports = value;
+            reports = Object.entries(value)
+              .map(([id, data]) => mapReport(id, data))
+              .sort((a, b) => (b.rawTimestamp || 0) - (a.rawTimestamp || 0));
+
+            renderReports();
+            updateStats();
+          },
+          (error) => {
+            console.error('Realtime reports error:', error);
+            reportsTable.innerHTML = `
+              <div class="t-row">
+                <div style="grid-column:1/-1;text-align:center;padding:1.5rem;color:#ef4444;">
+                  Unable to load reports. Please refresh the page.
+                </div>
+              </div>`;
+          }
+        );
+      } catch (error) {
+        console.error('Failed to initialize reports page:', error);
+      }
+    }
+
+    function renderReports() {
+      if (!reports.length) {
+        reportsTable.innerHTML = `
+          <div class="t-row">
+            <div style="grid-column:1/-1;text-align:center;padding:1.5rem;color:var(--muted);">
+              No reports yet.
+            </div>
+          </div>`;
+        return;
+      }
+
+      const currentUserRole = localStorage.getItem('iSagip_userRole') || '';
+      const canManage = ['admin', 'system_admin', 'barangay_staff', 'responder'].includes(currentUserRole);
+
+      reportsTable.innerHTML = reports
+        .map((report) => {
+          const photoCell = report.photo
+            ? `<a href="${report.photo}" target="_blank" rel="noopener" class="btn btn-small btn-outline">View</a>`
+            : 'N/A';
+          const actionButtons = `
+            <div class="reports-actions">
+              <button class="btn btn-small btn-outline" data-action="view-report" data-id="${report.id}">
+                View
+              </button>
+              ${
+                canManage
+                  ? `<button class="btn btn-small btn-primary" data-action="manage-report" data-id="${report.id}">
+                      Manage
+                    </button>`
+                  : ''
+              }
+            </div>
+          `;
+
+          return `
+            <div class="t-row" data-report-id="${report.id}">
+              <div>${report.id}</div>
+              <div>${escapeHtml(report.type)}</div>
+              <div>${escapeHtml(report.description)}</div>
+              <div>${formatStatusBadge(report.status)}</div>
+              <div>${escapeHtml(report.street)}</div>
+              <div>${escapeHtml(report.landmark)}</div>
+              <div>${photoCell}</div>
+              <div>${actionButtons}</div>
+              <div>${report.timestamp}</div>
+              <div>${report.responseTime || '—'}</div>
+              <div>${escapeHtml(report.reportedBy)}</div>
+              <div>${escapeHtml(report.closedBy || '—')}</div>
+              <div>${escapeHtml(report.lastUpdatedBy || '—')}</div>
+              <div>${report.lastUpdatedAt || '—'}</div>
+              <div>${escapeHtml(report.notes || '—')}</div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function updateStats() {
+      const total = reports.length;
+      const resolved = reports.filter((r) => r.status.toLowerCase() === 'resolved').length;
+      const active = total - resolved;
+
+      const responseValues = reports
+        .map((r) => r.responseMinutes)
+        .filter((value) => typeof value === 'number');
+
+      const average =
+        responseValues.length > 0
+          ? Math.round(responseValues.reduce((sum, value) => sum + value, 0) / responseValues.length)
+          : 0;
+
+      if (stats.total) stats.total.textContent = total;
+      if (stats.resolved) stats.resolved.textContent = resolved;
+      if (stats.active) stats.active.textContent = active;
+      if (stats.average) stats.average.textContent = responseValues.length ? `${average} min` : '0 min';
+    }
+
+    reportsTable.addEventListener('click', function (event) {
+      const viewButton = event.target.closest('[data-action="view-report"]');
+      const manageButton = event.target.closest('[data-action="manage-report"]');
+
+      if (viewButton) {
+        const reportId = viewButton.getAttribute('data-id');
+        const report = reports.find((item) => item.id === reportId);
+        if (report) {
+          showReportDetails(report);
+        }
+        return;
+      }
+
+      if (manageButton) {
+        const reportId = manageButton.getAttribute('data-id');
+        const raw = rawReports[reportId];
+        if (raw) {
+          openManageModal(reportId, raw);
+        }
+      }
+    });
+
+    function showReportDetails(report) {
+      if (!detailsModal || !detailsContent) return;
+
+      detailsContent.innerHTML = `
+        <div class="details-grid">
+          <div><strong>Report ID:</strong> ${report.id}</div>
+          <div><strong>Status:</strong> ${formatStatusLabel(report.status)}</div>
+          <div><strong>Type:</strong> ${escapeHtml(report.type)}</div>
+          <div><strong>Street:</strong> ${escapeHtml(report.street)}</div>
+          <div><strong>Landmark:</strong> ${escapeHtml(report.landmark)}</div>
+          <div><strong>Reported By:</strong> ${escapeHtml(report.reportedBy)}</div>
+          <div><strong>Timestamp:</strong> ${report.timestamp}</div>
+          <div><strong>Response Time:</strong> ${report.responseTime || '—'}</div>
+          <div style="grid-column:1/-1;"><strong>Description:</strong><br>${escapeHtml(report.description)}</div>
+          <div style="grid-column:1/-1;"><strong>Notes:</strong><br>${escapeHtml(report.notes || '—')}</div>
+          ${
+            report.photo
+              ? `<div style="grid-column:1/-1;margin-top:12px;">
+                  <img src="${report.photo}" alt="Report photo" style="max-width:100%;border-radius:8px;" />
+                </div>`
+              : ''
+          }
+        </div>
+      `;
+
+      detailsModal.hidden = false;
+    }
+
+    function openManageModal(reportId, raw) {
+      if (!manageModal || !manageForm) return;
+      manageReportIdInput.value = reportId;
+      manageStatusSelect.value = (raw.status || 'pending').toLowerCase();
+      manageVehicleInput.value = raw.assignedVehicle || '';
+      manageNotesInput.value = '';
+      manageModal.hidden = false;
+    }
+
+    manageModal?.addEventListener('click', function(event){
+      if (event.target.matches('[data-close]')) {
+        manageModal.hidden = true;
+      }
+    });
+
+    manageForm?.addEventListener('submit', async function(event){
+      event.preventDefault();
+      if (!databaseModule || !realtimeDb) return;
+
+      const reportId = manageReportIdInput.value;
+      const raw = rawReports[reportId];
+      if (!reportId || !raw) return;
+
+      const { ref, update, push, set } = databaseModule;
+      const now = Date.now();
+      const actor = localStorage.getItem('iSagip_userUID') || 'staff';
+      const newStatus = manageStatusSelect.value;
+      const assignedVehicle = manageVehicleInput.value.trim();
+      const note = manageNotesInput.value.trim();
+
+      const actorName = await resolveUserDisplayName(actor);
+
+      const updates = {
+        status: newStatus,
+        assignedVehicle: assignedVehicle || null,
+        lastUpdatedAt: now,
+        lastUpdatedBy: actorName,
+        lastUpdatedByUid: actor
+      };
+
+      const wasResolved = (raw.status || '').toLowerCase() === 'resolved';
+      const nowResolved = newStatus === 'resolved';
+
+      if (nowResolved && !wasResolved) {
+        updates.closedBy = actorName;
+        updates.closedByUid = actor;
+        updates.closedAt = now;
+      } else if (!nowResolved && wasResolved) {
+        updates.closedBy = null;
+        updates.closedByUid = null;
+        updates.closedAt = null;
+      }
+
+      if (note) {
+        updates.notes = note;
+      }
+
+      try {
+        await update(ref(realtimeDb, `reports/${reportId}`), updates);
+
+        const historyRef = push(ref(realtimeDb, `reports/${reportId}/history`));
+        const changeDetails = [];
+        if ((raw.status || 'pending').toLowerCase() !== newStatus) {
+          changeDetails.push(`Status: ${formatStatusLabel(raw.status)} → ${formatStatusLabel(newStatus)}`);
+        }
+        if ((raw.assignedVehicle || '') !== assignedVehicle) {
+          changeDetails.push(`Vehicle: "${raw.assignedVehicle || 'None'}" → "${assignedVehicle || 'None'}"`);
+        }
+        if (note) {
+          changeDetails.push(`Note: ${note}`);
+        }
+
+        await set(historyRef, {
+          timestamp: now,
+          actorUid: actor,
+          actorName,
+          action: 'update',
+          details: changeDetails.join(' | ') || 'Report updated'
+        });
+
+        manageModal.hidden = true;
+        manageNotesInput.value = '';
+      } catch (error) {
+        console.error('Error updating report:', error);
+        alert('Failed to update report. Please try again.');
+      }
+    });
+
+    function mapReport(id, raw) {
+      const timestamp = Number(raw.timestamp) || Date.now();
+      const closedAt = Number(raw.closedAt) || null;
+
+      const responseMinutes =
+        typeof raw.responseTimeMinutes === 'number'
+          ? raw.responseTimeMinutes
+          : closedAt
+          ? Math.round((closedAt - timestamp) / 60000)
+          : null;
+
+      return {
+        id,
+        type: raw.emergencyType || raw.type || 'General',
+        description: raw.description || raw.desc || 'No description provided',
+        status: raw.status || 'Pending',
+        street: raw.street || 'N/A',
+        landmark: raw.landmark || 'N/A',
+        photo: raw.photoUrl || raw.photo || '',
+        reportedBy: raw.userName || raw.reportedByName || raw.by || 'Unknown',
+        notes: raw.residentNotes || raw.notes || '',
+        closedBy: raw.closedBy || raw.closedByName || '',
+        lastUpdatedBy: raw.lastUpdatedBy || raw.lastUpdatedByName || '',
+        timestamp: new Date(timestamp).toLocaleString(),
+        lastUpdatedAt: raw.lastUpdatedAt ? new Date(Number(raw.lastUpdatedAt)).toLocaleString() : '—',
+        responseTime: typeof responseMinutes === 'number' ? `${responseMinutes} min` : '—',
+        responseMinutes,
+        rawTimestamp: timestamp,
+      };
+    }
+
+    function formatStatusBadge(status) {
+      const normalized = (status || '').toLowerCase();
+      let color = '#3b82f6';
+      if (normalized === 'resolved') color = '#10b981';
+      else if (normalized === 'dispatched' || normalized === 'on site' || normalized === 'on-site') color = '#f97316';
+      else if (normalized === 'emergency') color = '#ef4444';
+      return `<span class="status-badge" style="background: ${color}1a; color: ${color}; font-weight:600;">${formatStatusLabel(
+        status
+      )}</span>`;
+    }
+
+  async function resolveUserDisplayName(uid){
+    if (!uid) return 'Unknown';
+    try{
+      const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+      const db = window.iSagipDb;
+      if (!db) return uid;
+      const adminDoc = await getDoc(doc(db, 'admin', uid));
+      if (adminDoc.exists()) {
+        return adminDoc.data().lastName || adminDoc.data().firstName || uid;
+      }
+      const staffDoc = await getDoc(doc(db, 'staff', uid));
+      if (staffDoc.exists()) {
+        return staffDoc.data().lastName || staffDoc.data().firstName || uid;
+      }
+      const residentDoc = await getDoc(doc(db, 'residents', uid));
+      if (residentDoc.exists()) {
+        return residentDoc.data().lastName || residentDoc.data().firstName || uid;
+      }
+    } catch (error){
+      console.error('Failed to resolve user name for UID', uid, error);
+    }
+    return uid;
+  }
+
+  function formatStatusLabel(status) {
+      if (!status) return 'Pending';
+      return status.toString().replace(/[_-]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function ensureFirebaseReady() {
+      if (window.iSagipApp && window.iSagipDb) return Promise.resolve();
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 50;
+        const interval = setInterval(() => {
+          if (window.iSagipApp && window.iSagipDb) {
+            clearInterval(interval);
+            resolve();
+          } else if (attempts > maxAttempts) {
+            clearInterval(interval);
+            resolve();
+          }
+          attempts += 1;
+        }, 200);
+        window.addEventListener(
+          'firebaseReady',
+          () => {
+            clearInterval(interval);
+            resolve();
+          },
+          { once: true }
+        );
+      });
+    }
+  })();
+
+  // ========================================
   // FIREBASE ACCESS
   // ========================================
   // Firebase is initialized in HTML file (dashboard.html, etc.)

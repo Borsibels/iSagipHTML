@@ -116,11 +116,10 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
 .photo { width: 120px; height: 72px; background: #eef2ff; border: 1px dashed #c7d2fe; border-radius: 8px; }
 
 /* Reports table column sizing */
-.reports-table .t-row { grid-template-columns: 140px 220px 120px 160px 160px 120px 200px 160px 140px 120px 120px 160px 160px 220px; }
+.reports-table .t-row { grid-template-columns: 140px 140px 220px 120px 160px 160px 120px 200px 160px 140px 120px 120px 160px 160px 220px; }
 .reports-table .t-body .t-row > div { align-self: start; }
-.reports-table .actions { display: grid; grid-template-columns: 1fr; gap: 6px; width: 180px; }
-.reports-table .actions .input { padding: 8px 10px; font-size: 12px; }
-.reports-table .actions .btn { padding: 8px 10px; font-size: 12px; }
+.reports-table .reports-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.reports-table .reports-actions .btn { padding: 6px 10px; font-size: 12px; }
 .reports-table .history { font-size: 12px; text-align: center; }
 
 /* Modal */
