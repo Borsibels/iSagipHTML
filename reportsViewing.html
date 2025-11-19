@@ -349,8 +349,6 @@
           }).join('');
         }
 
-        renderRows(data);
-
         // Initialize column resizing functionality
         initializeColumnResizing();
         
@@ -374,6 +372,8 @@
           // Re-initialize column resizing after re-rendering
           initializeColumnResizing();
         });
+
+        renderRows(data);
 
         // ========================================
         // NOTIFICATION SYSTEM FOR REPORTS VIEWING
@@ -480,6 +480,39 @@
               notification.parentNode.removeChild(notification);
             }
           }, 300);
+        }
+
+        /**
+         * Show a simple notification message
+         * @param {string} message - Notification message
+         * @param {string} type - Notification type ('success', 'info', 'emergency')
+         */
+        function showNotification(message, type) {
+          type = type || 'info';
+          var container = document.getElementById('notification-container');
+          if (!container) return;
+          
+          var notification = document.createElement('div');
+          notification.className = 'notification ' + type;
+          
+          var currentTime = new Date().toLocaleTimeString();
+          
+          notification.innerHTML = 
+            '<div class="notification-header">' +
+              '<div class="notification-title">' + (type === 'success' ? '✓' : type === 'emergency' ? '🚨' : 'ℹ') + ' ' + message + '</div>' +
+              '<button class="notification-close">&times;</button>' +
+            '</div>' +
+            '<div class="notification-time">' + currentTime + '</div>';
+          
+          container.appendChild(notification);
+          
+          setTimeout(function() {
+            notification.classList.add('show');
+          }, 100);
+          
+          setTimeout(function() {
+            removeNotification(notification);
+          }, 5000);
         }
 
         /**
@@ -602,6 +635,9 @@
             // Re-render the table
             renderRows(data);
             
+            // Re-initialize column resizing after re-rendering
+            initializeColumnResizing();
+            
             // Schedule next simulation
             var nextDelay = Math.random() * 30000 + 45000; // 45-75 seconds
             setTimeout(simulateNewReport, nextDelay);
@@ -638,6 +674,9 @@
             // Add to data and re-render
             data.unshift(testReport);
             renderRows(data);
+            
+            // Re-initialize column resizing after re-rendering
+            initializeColumnResizing();
           });
         }
 

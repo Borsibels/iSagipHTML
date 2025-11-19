@@ -133,14 +133,46 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
 .modal-close { border: none; background: transparent; font-size: 20px; cursor: pointer; }
 
 /* Ambulance */
+.ambulance-summary { margin-bottom: 12px; }
 .ambulance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 18px; align-items: stretch; }
-.ambulance-card { border: 1px solid var(--outline); border-radius: 12px; padding: 18px 20px; background: #fff; display: grid; gap: 10px; box-shadow: 0 8px 24px rgba(2,8,23,0.04); }
+.ambulance-card { border: 1px solid var(--outline); border-radius: 12px; padding: 18px 20px; background: #fff; display: grid; gap: 10px; box-shadow: 0 8px 24px rgba(2,8,23,0.04); transition: border-color 0.2s ease, transform 0.2s ease; }
+.ambulance-card.status-available { border-color: #bbf7d0; }
+.ambulance-card.status-in-use { border-color: #fcd34d; }
+.ambulance-card.status-maintenance { border-color: #fbbf24; background: #fff7ed; }
 .amb-title { font-weight: 800; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.amb-subtitle { font-size: 13px; color: var(--muted); }
 .amb-status { color: #111827; font-size: 14px; }
+.amb-meta { font-size: 13px; color: #0f172a; display: flex; gap: 6px; align-items: center; }
+.amb-meta span { font-weight: 600; color: #64748b; }
+.amb-meta small { color: #94a3b8; font-weight: 500; }
+.amb-assignment { border: 1px dashed rgba(37,99,235,0.4); border-radius: 10px; padding: 12px 14px; background: rgba(37,99,235,0.04); }
+.amb-assignment-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 6px; font-weight: 600; color: #1e40af; }
+.amb-pill { padding: 2px 10px; border-radius: 999px; background: rgba(59,130,246,0.1); color: #1d4ed8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.amb-assignment p { margin: 4px 0; font-size: 13px; color: #0f172a; }
+.amb-maintenance { border-radius: 10px; padding: 12px 14px; background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.3); font-size: 13px; color: #9a3412; }
+.amb-maintenance strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.amb-responders-block { margin-top: 12px; }
+#amb-responders-dropdown { border: 1px solid var(--outline); border-radius: 10px; padding: 10px 14px; background: rgba(59,130,246,0.04); cursor: pointer; }
+#amb-responders-dropdown summary { font-weight: 600; color: #1d4ed8; outline: none; list-style: none; }
+#amb-responders-dropdown summary::-webkit-details-marker { display: none; }
+.amb-responders-list { margin: 8px 0 0 0; padding-left: 18px; color: #0f172a; font-size: 13px; }
+.amb-responders-list li { margin-bottom: 4px; }
+.amb-responders-list li.muted { color: var(--muted); font-style: italic; }
+.amb-responders { margin-top: 10px; border: 1px dashed rgba(15,23,42,0.2); border-radius: 8px; padding: 10px 12px; background: rgba(15,23,42,0.02); }
+.amb-responders summary { font-weight: 600; color: #0f172a; cursor: pointer; }
+.amb-responders summary::-webkit-details-marker { display: none; }
+.amb-responders summary::after { content: '▼'; font-size: 10px; margin-left: 6px; transition: transform 0.2s ease; display: inline-block; }
+.amb-responders[open] summary::after { transform: rotate(180deg); }
+.amb-responders ul { margin: 8px 0 0 0; padding-left: 18px; font-size: 13px; color: #0f172a; }
+.amb-responders ul li { margin-bottom: 4px; }
+.amb-responders ul li:last-child { margin-bottom: 0; }
 .amb-actions { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
 .amb-btn { background: transparent; border: none; color: #1d72f3; font-size: 12px; font-weight: 800; cursor: pointer; padding: 0; letter-spacing: .2px; }
 .amb-btn:hover { text-decoration: underline; }
 .amb-badge { font-weight: 900; letter-spacing: .3px; }
+.amb-form-section { margin-bottom: 18px; }
+.amb-form-section h4 { margin: 0 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.small-btn { padding: 6px 10px; font-size: 12px; margin-top: 10px; }
 
 /* Resident management */
 .res-table .t-row { grid-template-columns: 140px 1fr 200px 140px 120px 220px; }

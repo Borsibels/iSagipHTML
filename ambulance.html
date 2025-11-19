@@ -27,10 +27,105 @@
 
       <main class="content">
         <section class="card">
-          <h3 class="section-title">Ambulance Status Management</h3>
+          <h3 class="section-title">Ambulance Fleet Overview</h3>
+          
+          <div class="stats ambulance-summary">
+            <div class="stat">
+              <div class="stat-title">Total Units</div>
+              <div class="stat-value" id="amb-total">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Available</div>
+              <div class="stat-value" id="amb-available">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">In Use</div>
+              <div class="stat-value" id="amb-inuse">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Maintenance</div>
+              <div class="stat-value" id="amb-maintenance">0</div>
+            </div>
+          </div>
+
+          <h3 class="section-title" style="margin-top:24px;">Ambulance Status Management</h3>
           <div class="ambulance-grid" id="ambulance-grid"></div>
         </section>
       </main>
+    </div>
+
+    <div class="modal" id="ambulance-modal" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title" id="amb-form-title">Manage Ambulance</h3>
+          <button class="modal-close" data-close>&times;</button>
+        </div>
+        <form id="ambulance-form">
+          <div class="modal-body">
+            <div class="amb-form-section">
+              <h4>General Details</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Current Location</span>
+                  <input type="text" id="amb-location" class="input" placeholder="e.g., Central Station" readonly />
+                </label>
+                <label>
+                  <span class="label">Crew Lead</span>
+                  <input type="text" id="amb-crew-lead" class="input" placeholder="e.g., EMT Santos" readonly />
+                </label>
+              </div>
+            </div>
+
+            <div class="amb-form-section">
+              <h4>Current Assignment</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Report ID</span>
+                  <input type="text" id="amb-report-id" class="input" placeholder="REP-XXXX" readonly />
+                </label>
+                <label>
+                  <span class="label">Emergency Type</span>
+                  <input type="text" id="amb-report-type" class="input" placeholder="Medical, Fire, etc." readonly />
+                </label>
+                <label>
+                  <span class="label">Incident Location</span>
+                  <input type="text" id="amb-report-address" class="input" placeholder="Street / Landmark" readonly />
+                </label>
+                <label>
+                  <span class="label">Destination Facility</span>
+                  <input type="text" id="amb-report-destination" class="input" placeholder="Hospital / Clinic" readonly />
+                </label>
+              </div>
+              <div class="amb-responders-block">
+                <details id="amb-responders-dropdown">
+                  <summary>Responders</summary>
+                  <ul class="amb-responders-list" id="amb-responders-list">
+                    <li class="muted">No responders recorded</li>
+                  </ul>
+                </details>
+              </div>
+            </div>
+
+            <div class="amb-form-section">
+              <h4>Maintenance</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Maintenance Note</span>
+                  <input type="text" id="amb-maint-note" class="input" placeholder="e.g., Radiator replacement" />
+                </label>
+                <label>
+                  <span class="label">Estimated Return</span>
+                  <input type="datetime-local" id="amb-maint-eta" class="input" />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-close>Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Firebase Initialization -->
