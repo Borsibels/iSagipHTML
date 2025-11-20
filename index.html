@@ -13,15 +13,15 @@
           <div class="logo"><img src="public/iSagipLogo.png" alt="iSagip Logo" /></div>
         </div>
 
-        <h1 class="title" id="login-title">Welcome to iSagip</h1>
-        <p class="subtitle" id="login-subtitle">Sign in to continue</p>
+        <h1 class="title">iSagip Login</h1>
+        <p class="subtitle">Sign in to your account</p>
 
         <form id="login-form" class="form" autocomplete="on">
-          <label class="label" for="username">Username</label>
-          <input id="username" class="input" type="text" placeholder="admin" />
+          <label class="label" for="login-email">Email</label>
+          <input id="login-email" class="input" type="email" placeholder="your@email.com" required />
 
-          <label class="label" for="password">Password</label>
-          <input id="password" class="input" type="password" placeholder="••••" />
+          <label class="label" for="login-password">Password</label>
+          <input id="login-password" class="input" type="password" required />
 
           <button type="submit" class="btn btn-primary" id="login-button">Login</button>
         </form>
@@ -32,8 +32,41 @@
       </section>
     </main>
 
-    <script src="assets/js/common.js"></script>
-    <script src="assets/js/index.js"></script>
+    <!-- Firebase Initialization -->
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      // Make available globally for use in script.js
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
   </body>
   </html>
 

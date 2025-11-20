@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Barangay Staff / Responder Registration</title>
+    <title>Resident Registration</title>
     <link rel="stylesheet" href="assets/css/styles.css" />
   </head>
   <body class="bg-app">
@@ -20,81 +20,63 @@
           <a class="menu-item" href="reports.html">Reports</a>
           <a class="menu-item" href="ambulance.html">Ambulance Status</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
-          <a class="menu-item active" href="#">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
           <a class="menu-item" href="settings.html">Settings</a>
         </nav>
       </aside>
 
       <main class="content">
         <section class="card">
-          <h3 class="section-title">Responder / Barangay Staff Registration</h3>
-          <form id="register-form" class="form" style="max-width:720px; margin:0 auto;">
+          <h3 class="section-title">Resident Registration</h3>
+          <form id="resident-register-form" class="form" style="max-width:720px; margin:0 auto;">
             <div class="form-grid">
               <label>
-                <span>Role *</span>
-                <select id="reg-role" class="input">
-                  <option value="responder">Responder</option>
-                  <option value="barangay_staff">Barangay Staff</option>
-                </select>
-              </label>
-              <label id="reg-responder-type-wrap">
-                <span>Responder Type *</span>
-                <select id="reg-responder-type" class="input">
-                  <option>Fire</option>
-                  <option>Medic</option>
-                  <option>Tanod</option>
-                </select>
-              </label>
-
-              <label>
                 <span>Username *</span>
-                <input id="reg-username" class="input" />
+                <input id="res-username" class="input" />
               </label>
               <label>
                 <span>Email *</span>
-                <input id="reg-email" class="input" />
+                <input id="res-email" class="input" type="email" />
               </label>
-
               <label>
                 <span>Password *</span>
-                <input id="reg-password" class="input" type="password" />
+                <input id="res-password" class="input" type="password" />
               </label>
               <label>
                 <span>Confirm Password *</span>
-                <input id="reg-password2" class="input" type="password" />
+                <input id="res-password2" class="input" type="password" />
               </label>
-
               <label>
                 <span>First name *</span>
-                <input id="reg-first" class="input" />
+                <input id="res-first" class="input" />
               </label>
               <label>
                 <span>Middle name</span>
-                <input id="reg-middle" class="input" />
+                <input id="res-middle" class="input" />
               </label>
               <label>
                 <span>Last name *</span>
-                <input id="reg-last" class="input" />
+                <input id="res-last" class="input" />
               </label>
               <label>
-                <span>Age *</span>
-                <input id="reg-age" class="input" />
+                <span>Gender *</span>
+                <select id="res-gender" class="input"><option>Male</option><option>Female</option><option>Prefer not to say</option></select>
               </label>
               <label>
                 <span>Birth date *</span>
-                <input id="reg-birth" class="input" placeholder="mm/dd/yyyy" />
+                <input id="res-birth" class="input" placeholder="mm/dd/yyyy" />
+              </label>
+              <label>
+                <span>Address *</span>
+                <input id="res-address" class="input" />
               </label>
               <label>
                 <span>Contact Number *</span>
-                <input id="reg-contact" class="input" />
-              </label>
-              <label style="grid-column:1/-1;">
-                <span>Address *</span>
-                <input id="reg-address" class="input" />
+                <input id="res-contact" class="input" />
               </label>
             </div>
             <div style="margin-top:16px; display:grid; place-items:center;">
-              <button class="btn btn-primary" id="reg-submit" type="submit">REGISTER</button>
+              <button class="btn btn-primary" id="res-submit" type="submit">REGISTER</button>
             </div>
           </form>
         </section>
@@ -131,14 +113,6 @@
     </script>
     
     <script src="assets/js/script.js"></script>
-    <script>
-      (function(){
-        var roleSel = document.getElementById('reg-role');
-        var typeWrap = document.getElementById('reg-responder-type-wrap');
-        function toggleType(){ typeWrap.style.display = (roleSel.value === 'responder') ? '' : 'none'; }
-        roleSel.addEventListener('change', toggleType); toggleType();
-      })();
-    </script>
   </body>
   </html>
 

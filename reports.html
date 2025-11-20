@@ -8,7 +8,7 @@
   </head>
   <body class="bg-app page-enter">
     <header class="topbar">
-      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
       <button class="btn btn-small btn-outline" id="logout">Logout</button>
     </header>
 
@@ -16,11 +16,12 @@
       <aside class="sidebar">
         <div class="sidebar-brand">iSagip Barangay Staff</div>
         <nav class="menu" id="sidebar-menu">
-          <a class="menu-item" href="dashboard.html">Dashboard</a>
-          <a class="menu-item active" href="reports.html" aria-current="page">Reports</a>
+          <a class="menu-item active" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
           <a class="menu-item" href="ambulance.html">Ambulance Status</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
           <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-resident.html">Resident Registration</a>
           <a class="menu-item" href="settings.html">Settings</a>
         </nav>
       </aside>
@@ -50,6 +51,9 @@
               <button class="btn btn-outline" id="reports-export-csv">EXPORT TO CSV</button>
             </div>
           </div>
+          <div class="section-actions" style="margin-top:12px;">
+            <button class="btn btn-primary" id="add-report-btn" hidden>+ Create Report</button>
+          </div>
         </section>
 
         <section class="card" style="overflow:auto;">
@@ -57,6 +61,7 @@
           <div class="table reports-table">
             <div class="t-head t-row">
               <div>ID</div>
+              <div>Emergency Type</div>
               <div>Description</div>
               <div>Status</div>
               <div>Street</div>
@@ -77,6 +82,7 @@
       </main>
     </div>
 
+    <!-- Details Modal -->
     <div class="modal" id="modal-details" hidden>
       <div class="modal-dialog">
         <div class="modal-header">
@@ -88,6 +94,7 @@
       </div>
     </div>
 
+    <!-- History Modal -->
     <div class="modal" id="modal-history" hidden>
       <div class="modal-dialog">
         <div class="modal-header">
@@ -109,14 +116,83 @@
       </div>
     </div>
 
+    <!-- Manage Report Modal -->
+    <div class="modal" id="modal-manage-report" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title" id="manage-title">Update Report</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <form class="modal-body" id="manage-report-form">
+          <input type="hidden" id="manage-report-id" />
+          <div class="form-grid">
+            <label>
+              <span>Status *</span>
+              <select class="input" id="manage-status" required>
+                <option value="pending">Pending</option>
+                <option value="relayed">Relayed</option>
+                <option value="responding">Responding</option>
+                <option value="on-site">On Site</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </label>
+            <label>
+              <span>Assigned Vehicle</span>
+              <select class="input" id="manage-vehicle">
+                <option value="">Select an ambulance</option>
+              </select>
+            </label>
+            <label style="grid-column:1/-1;">
+              <span>Notes / Instructions</span>
+              <textarea class="input" id="manage-notes" rows="3" placeholder="Add details for the responders..."></textarea>
+            </label>
+          </div>
+        </form>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-close>Cancel</button>
+          <button class="btn btn-primary" form="manage-report-form" type="submit">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Container -->
     <div class="notification-container" id="notification-container"></div>
     
+    <!-- Notification Sound Indicator -->
     <div class="notification-sound-indicator" id="sound-indicator">
       🔊 Notification sound played
     </div>
 
-    <script src="assets/js/common.js"></script>
-    <script src="assets/js/reports.js"></script>
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
   </body>
 </html>
 

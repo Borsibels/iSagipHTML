@@ -8,7 +8,7 @@
   </head>
   <body class="bg-app page-enter">
     <header class="topbar">
-      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Reports</span></div>
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Reports</span></div>
       <button class="btn btn-small btn-outline" id="logout">Logout</button>
     </header>
 
@@ -52,18 +52,51 @@
             <div>Timestamp</div>
           </div>
 
-          <div class="t-body" id="report-rows"></div>
+          <div class="t-body" id="report-rows">
+            <!-- rows injected by JS -->
+          </div>
         </div>
       </section>
     </main>
 
+    <!-- Notification Container -->
     <div class="notification-container" id="notification-container"></div>
     
+    <!-- Notification Sound Indicator -->
     <div class="notification-sound-indicator" id="sound-indicator">
       🔊 Notification sound played
     </div>
 
-    <script src="assets/js/common.js"></script>
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
     <script>
       (function(){
         // ========================================
@@ -316,8 +349,6 @@
           }).join('');
         }
 
-        renderRows(data);
-
         // Initialize column resizing functionality
         initializeColumnResizing();
         
@@ -341,6 +372,8 @@
           // Re-initialize column resizing after re-rendering
           initializeColumnResizing();
         });
+
+        renderRows(data);
 
         // ========================================
         // NOTIFICATION SYSTEM FOR REPORTS VIEWING
@@ -447,6 +480,39 @@
               notification.parentNode.removeChild(notification);
             }
           }, 300);
+        }
+
+        /**
+         * Show a simple notification message
+         * @param {string} message - Notification message
+         * @param {string} type - Notification type ('success', 'info', 'emergency')
+         */
+        function showNotification(message, type) {
+          type = type || 'info';
+          var container = document.getElementById('notification-container');
+          if (!container) return;
+          
+          var notification = document.createElement('div');
+          notification.className = 'notification ' + type;
+          
+          var currentTime = new Date().toLocaleTimeString();
+          
+          notification.innerHTML = 
+            '<div class="notification-header">' +
+              '<div class="notification-title">' + (type === 'success' ? '✓' : type === 'emergency' ? '🚨' : 'ℹ') + ' ' + message + '</div>' +
+              '<button class="notification-close">&times;</button>' +
+            '</div>' +
+            '<div class="notification-time">' + currentTime + '</div>';
+          
+          container.appendChild(notification);
+          
+          setTimeout(function() {
+            notification.classList.add('show');
+          }, 100);
+          
+          setTimeout(function() {
+            removeNotification(notification);
+          }, 5000);
         }
 
         /**
@@ -569,6 +635,9 @@
             // Re-render the table
             renderRows(data);
             
+            // Re-initialize column resizing after re-rendering
+            initializeColumnResizing();
+            
             // Schedule next simulation
             var nextDelay = Math.random() * 30000 + 45000; // 45-75 seconds
             setTimeout(simulateNewReport, nextDelay);
@@ -605,6 +674,9 @@
             // Add to data and re-render
             data.unshift(testReport);
             renderRows(data);
+            
+            // Re-initialize column resizing after re-rendering
+            initializeColumnResizing();
           });
         }
 

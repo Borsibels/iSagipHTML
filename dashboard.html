@@ -8,7 +8,7 @@
   </head>
   <body class="bg-app page-enter">
     <header class="topbar">
-      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
       <button class="btn btn-small btn-outline" id="logout">Logout</button>
     </header>
 
@@ -21,6 +21,7 @@
           <a class="menu-item" href="ambulance.html">Ambulance Status</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
           <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-resident.html">Resident Registration</a>
           <a class="menu-item" href="settings.html">Settings</a>
         </nav>
       </aside>
@@ -33,15 +34,15 @@
 
         <section class="card">
           <h3 class="section-title">🚑 Ongoing Emergency Response</h3>
-          <div class="ongoing">
+          <div class="ongoing" id="ongoing-emergency">
             <div class="ongoing-illustration" aria-hidden="true">🚑</div>
             <div class="ongoing-details">
-              <div class="row"><span class="key">Type:</span><span class="val">Medical</span></div>
-              <div class="row"><span class="key">Location:</span><span class="val">Block 1, Lot 2</span></div>
-              <div class="row"><span class="key">Description:</span><span class="val">Elderly person experiencing chest pain</span></div>
-              <div class="row"><span class="key">Status:</span><span class="val">Ongoing</span></div>
-              <div class="row"><span class="key">Reported At:</span><span class="val" id="reported-at"></span></div>
-              <div class="eta">Estimated Time of Arrival: <strong>5 minutes</strong></div>
+              <div class="row"><span class="key">Type:</span><span class="val" id="ongoing-type">-</span></div>
+              <div class="row"><span class="key">Location:</span><span class="val" id="ongoing-location">-</span></div>
+              <div class="row"><span class="key">Description:</span><span class="val" id="ongoing-description">-</span></div>
+              <div class="row"><span class="key">Status:</span><span class="val" id="ongoing-status">-</span></div>
+              <div class="row"><span class="key">Reported At:</span><span class="val" id="reported-at">-</span></div>
+              <div class="eta">Estimated Time of Arrival: <strong id="ongoing-eta">-</strong></div>
             </div>
           </div>
         </section>
@@ -81,20 +82,20 @@
 
           <div class="stats">
             <div class="stat">
-              <div class="stat-title">Total Reports (Jan)</div>
-              <div class="stat-value">9</div>
+              <div class="stat-title" id="stat-total-title">Total Reports</div>
+              <div class="stat-value" id="stat-total-value">0</div>
             </div>
             <div class="stat">
               <div class="stat-title">Type of Emergencies</div>
-              <div class="badges">
-                <span class="badge badge-blue">Medical: 4</span>
-                <span class="badge badge-orange">Fire: 2</span>
-                <span class="badge badge-green">Police: 3</span>
+              <div class="badges" id="emergency-types-badges">
+                <span class="badge badge-blue">Medical: 0</span>
+                <span class="badge badge-orange">Fire: 0</span>
+                <span class="badge badge-green">Police: 0</span>
               </div>
             </div>
             <div class="stat">
               <div class="stat-title">Average Response Time</div>
-              <div class="stat-value" id="avg-response">12 min</div>
+              <div class="stat-value" id="avg-response">0 min</div>
             </div>
             <div class="stat">
               <div class="stat-title">Export Data</div>
@@ -106,14 +107,50 @@
       </main>
     </div>
 
+    <!-- Notification Container -->
     <div class="notification-container" id="notification-container"></div>
     
+    <!-- Notification Sound Indicator -->
     <div class="notification-sound-indicator" id="sound-indicator">
       🔊 Notification sound played
     </div>
 
-    <script src="assets/js/common.js"></script>
-    <script src="assets/js/dashboard.js"></script>
+    <!-- Firebase Initialization -->
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      // Make available globally for use in script.js
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
+    <!-- Replace YOUR_API_KEY with your actual key after this change -->
     <script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMeYxYAoOmqAcEeCCqtyRHHLDT5vvftJQ&callback=initISagipMap"></script>
   </body>
   </html>

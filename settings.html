@@ -7,32 +7,37 @@
     <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body class="bg-app page-enter">
+    <!-- Top Navigation Bar -->
     <header class="topbar">
         <div class="brand-inline">
-            <img src="public/iSagipLogo.png" alt="iSagip Logo" class="brand-inline-logo">
+            <img src="iSagipLogo.png" alt="iSagip Logo" class="brand-inline-logo">
             <span class="brand-inline-name">iSagip</span>
         </div>
         <div class="topbar-title">Settings</div>
         <button id="logout" class="btn btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);">Logout</button>
     </header>
 
+    <!-- Main Layout -->
     <div class="layout">
+        <!-- Sidebar Navigation -->
         <nav class="sidebar">
             <div class="sidebar-brand">iSagip</div>
             <div class="menu" id="sidebar-menu">
-                <a class="menu-item" href="dashboard.html">Dashboard</a>
+                <a class="menu-item active" href="dashboard.html">Dashboard</a>
                 <a class="menu-item" href="reports.html">Reports</a>
                 <a class="menu-item" href="ambulance.html">Ambulance Status</a>
                 <a class="menu-item" href="resident-management.html">Resident Management</a>
                 <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
-                <a class="menu-item active" href="settings.html" aria-current="page">Settings</a>
+                <a class="menu-item" href="settings.html">Settings</a>
             </div>
         </nav>
 
+        <!-- Main Content -->
         <main class="content">
             <div class="settings-container">
                 <h1 class="section-title">Settings</h1>
                 
+                <!-- Dark Mode Toggle -->
                 <div class="settings-section">
                     <div class="settings-header">
                         <h2>Appearance</h2>
@@ -53,63 +58,7 @@
                     </div>
                 </div>
 
-                
-
-                <div class="settings-section">
-                    <div class="settings-header">
-                        <h2>Language & Region</h2>
-                        <p>Set your language, time and date preferences</p>
-                    </div>
-
-                    <div class="settings-item">
-                        <div class="settings-item-content" style="width:100%; display:block;">
-                            <div class="form-grid">
-                                <label>
-                                    <span class="label">Language</span>
-                                    <select id="settings-language" class="input">
-                                        <option value="en-PH">English (Philippines)</option>
-                                        <option value="fil-PH">Filipino</option>
-                                    </select>
-                                </label>
-                                <label>
-                                    <span class="label">Time Format</span>
-                                    <select id="settings-time-format" class="input">
-                                        <option value="12">12-hour</option>
-                                        <option value="24">24-hour</option>
-                                    </select>
-                                </label>
-                                <label>
-                                    <span class="label">Date Format</span>
-                                    <select id="settings-date-format" class="input">
-                                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                                    </select>
-                                </label>
-                                <label>
-                                    <span class="label">Timezone</span>
-                                    <select id="settings-timezone" class="input"></select>
-                                </label>
-                                <label style="grid-column: 1 / -1;">
-                                    <span class="label">Default Landing Page</span>
-                                    <select id="settings-default-landing" class="input">
-                                        <option value="dashboard.html">Dashboard</option>
-                                        <option value="reports.html">Reports</option>
-                                        <option value="ambulance.html">Ambulance Status</option>
-                                        <option value="reportsViewing.html">Reports Live Viewing</option>
-                                        <option value="register-staff.html">Barangay Staff Registration</option>
-                                        <option value="resident-management.html">Resident Management</option>
-                                        <option value="settings.html">Settings</option>
-                                    </select>
-                                </label>
-                            </div>
-                            <div class="form-actions">
-                                <button class="btn btn-primary" id="save-locale-btn">Save Preferences</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                <!-- Security Settings -->
                 <div class="settings-section">
                     <div class="settings-header">
                         <h2>Security</h2>
@@ -127,6 +76,7 @@
                     </div>
                 </div>
 
+                <!-- Account Information -->
                 <div class="settings-section">
                     <div class="settings-header">
                         <h2>Account Information</h2>
@@ -146,6 +96,7 @@
         </main>
     </div>
 
+    <!-- Change Password Modal -->
     <div class="modal" id="change-password-modal" hidden>
         <div class="modal-dialog">
             <div class="modal-header">
@@ -159,12 +110,6 @@
                     
                     <label class="label" for="new-password">New Password</label>
                     <input id="new-password" class="input" type="password" placeholder="Enter new password" required>
-                    <div class="password-strength" id="password-strength">
-                        <div class="password-meter"><div id="password-meter-fill" class="password-meter-fill"></div></div>
-                        <div id="password-strength-text" class="muted" style="font-size:12px; margin-top:6px;">Strength: 
-                            <span id="password-strength-label">Weak</span>
-                        </div>
-                    </div>
                     
                     <label class="label" for="confirm-password">Confirm New Password</label>
                     <input id="confirm-password" class="input" type="password" placeholder="Confirm new password" required>
@@ -178,7 +123,35 @@
         </div>
     </div>
 
-    <script src="assets/js/common.js"></script>
-    <script src="assets/js/settings.js"></script>
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
 </body>
 </html>

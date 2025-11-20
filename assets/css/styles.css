@@ -1,22 +1,3 @@
-/* ===================================================================
-   iSagip CSS (Vanilla) - Simplified and Documented
-   Purpose: Central styles with clear sections, minimal complexity.
-   Table of Contents:
-   1) Base tokens (colors, typography, resets)
-   2) Generic utilities (buttons, inputs, cards)
-   3) App layout (topbar, sidebar, content)
-   4) Feature blocks (map, ongoing, stats)
-   5) Data tables (reports, resident, reports viewing)
-   6) Components (modal, notifications, toggles)
-   7) Pages (ambulance, settings, registration)
-   8) Dark mode (variables + overrides)
-   9) Animations + accessibility (reduced motion)
-   Notes:
-   - Keep selectors shallow, prefer single-class selectors.
-   - Page-scoped roots like .reports-viewing, .reports-table, .res-table
-     contain styles only for that page to avoid side effects.
-   =================================================================== */
-
 /* Base */
 :root {
   --bg: #f3f6fb;
@@ -49,8 +30,6 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
 .btn-secondary { color: #fff; background: linear-gradient(90deg, #10b981, #059669); }
 .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #111827; }
 .btn-small { padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 12px; }
-.btn-warn { background: #f59e0b; color: #111827; }
-.btn-danger { background: #ef4444; color: #ffffff; }
 .links { text-align: center; margin-top: 10px; }
 .links .muted { color: var(--muted); text-decoration: none; font-size: 12px; }
 
@@ -137,53 +116,77 @@ body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto
 .photo { width: 120px; height: 72px; background: #eef2ff; border: 1px dashed #c7d2fe; border-radius: 8px; }
 
 /* Reports table column sizing */
-.reports-table .t-row { grid-template-columns: 220px 160px 1fr 140px 140px 140px 300px 160px 140px 140px 140px 160px 160px 220px; }
+.reports-table .t-row { grid-template-columns: 140px 140px 220px 120px 160px 160px 120px 200px 160px 140px 120px 120px 160px 160px 220px; }
 .reports-table .t-body .t-row > div { align-self: start; }
-.reports-table .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: 100%; min-width: 0; }
-.reports-table .actions .input { padding: 8px 10px; font-size: 12px; grid-column: 1 / -1; }
-.reports-table .actions .btn { padding: 8px 10px; font-size: 12px; }
-.reports-table .actions .btn.view-btn { grid-column: 1 / span 1; }
-.reports-table .actions .history { grid-column: 2 / span 1; text-align: right; }
-.reports-table .t-head { position: sticky; top: 0; z-index: 2; }
-.reports-table .t-body .t-row:hover { background: rgba(2,8,23,0.03); }
-
-/* Split button for Notify */
-.reports-table .split { display: grid; grid-template-columns: 1fr 28px; gap: 6px; position: relative; }
-.reports-table .split .split-toggle { padding: 8px; }
-.reports-table .split-menu { position: absolute; top: calc(100% + 4px); right: 0; background: #fff; border: 1px solid var(--outline); border-radius: 8px; box-shadow: 0 8px 24px rgba(2,8,23,0.18); min-width: 220px; padding: 6px; display: none; z-index: 1000; color: #0f172a; }
-.reports-table .split-menu.open { display: grid; gap: 4px; }
-.reports-table .split-menu .menu-item { background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 10px 12px; text-align: left; font-size: 13px; cursor: pointer; color: #0f172a; font-weight: 600; }
-.reports-table .split-menu .menu-item:hover { background: #f1f5f9; border-color: #e2e8f0; }
-
-[data-theme="dark"] .reports-table .split-menu { background: var(--card); border-color: var(--outline); color: var(--text); }
-[data-theme="dark"] .reports-table .split-menu .menu-item { color: var(--text); }
-[data-theme="dark"] .reports-table .split-menu .menu-item:hover { background: #475569; border-color: #64748b; }
+.reports-table .reports-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.reports-table .reports-actions .btn { padding: 6px 10px; font-size: 12px; }
 .reports-table .history { font-size: 12px; text-align: center; }
 
 /* Modal */
-.modal { position: fixed; inset: 0; background: rgba(2,8,23,0.45); display: grid; place-items: center; padding: 16px; z-index: 1200; }
+.modal { position: fixed; inset: 0; background: rgba(2,8,23,0.45); display: grid; place-items: center; padding: 16px; }
 .modal[hidden] { display: none; }
-.modal-dialog { width: min(920px, 95vw); background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(2,8,23,0.2); overflow: hidden; z-index: 1201; }
+.modal-dialog { width: min(920px, 95vw); background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(2,8,23,0.2); overflow: hidden; }
 .modal-header, .modal-footer { padding: 12px 16px; border-bottom: 1px solid var(--outline); display: flex; align-items: center; justify-content: space-between; }
 .modal-footer { border-top: 1px solid var(--outline); border-bottom: none; }
 .modal-title { font-weight: 800; }
 .modal-body { padding: 16px; max-height: 60vh; overflow: auto; }
 .modal-close { border: none; background: transparent; font-size: 20px; cursor: pointer; }
 
-.modal-open { overflow: hidden; }
-
 /* Ambulance */
+.ambulance-summary { margin-bottom: 12px; }
 .ambulance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 18px; align-items: stretch; }
-.ambulance-card { border: 1px solid var(--outline); border-radius: 12px; padding: 18px 20px; background: #fff; display: grid; gap: 10px; box-shadow: 0 8px 24px rgba(2,8,23,0.04); }
+.ambulance-card { border: 1px solid var(--outline); border-radius: 12px; padding: 18px 20px; background: #fff; display: grid; gap: 10px; box-shadow: 0 8px 24px rgba(2,8,23,0.04); transition: border-color 0.2s ease, transform 0.2s ease; }
+.ambulance-card.status-available { border-color: #bbf7d0; }
+.ambulance-card.status-in-use { border-color: #fcd34d; }
+.ambulance-card.status-maintenance { border-color: #fbbf24; background: #fff7ed; }
 .amb-title { font-weight: 800; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.amb-subtitle { font-size: 13px; color: var(--muted); }
 .amb-status { color: #111827; font-size: 14px; }
+.amb-meta { font-size: 13px; color: #0f172a; display: flex; gap: 6px; align-items: center; }
+.amb-meta span { font-weight: 600; color: #64748b; }
+.amb-meta small { color: #94a3b8; font-weight: 500; }
+.amb-assignment { border: 1px dashed rgba(37,99,235,0.4); border-radius: 10px; padding: 12px 14px; background: rgba(37,99,235,0.04); }
+.amb-assignment-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 6px; font-weight: 600; color: #1e40af; }
+.amb-pill { padding: 2px 10px; border-radius: 999px; background: rgba(59,130,246,0.1); color: #1d4ed8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.amb-assignment p { margin: 4px 0; font-size: 13px; color: #0f172a; }
+.amb-maintenance { border-radius: 10px; padding: 12px 14px; background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.3); font-size: 13px; color: #9a3412; }
+.amb-maintenance strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.amb-responders-block { margin-top: 12px; }
+#amb-responders-dropdown { border: 1px solid var(--outline); border-radius: 10px; padding: 10px 14px; background: rgba(59,130,246,0.04); cursor: pointer; }
+#amb-responders-dropdown summary { font-weight: 600; color: #1d4ed8; outline: none; list-style: none; }
+#amb-responders-dropdown summary::-webkit-details-marker { display: none; }
+.amb-responders-list { margin: 8px 0 0 0; padding-left: 18px; color: #0f172a; font-size: 13px; }
+.amb-responders-list li { margin-bottom: 4px; }
+.amb-responders-list li.muted { color: var(--muted); font-style: italic; }
+.amb-responders { margin-top: 10px; border: 1px dashed rgba(15,23,42,0.2); border-radius: 8px; padding: 10px 12px; background: rgba(15,23,42,0.02); }
+.amb-responders summary { font-weight: 600; color: #0f172a; cursor: pointer; }
+.amb-responders summary::-webkit-details-marker { display: none; }
+.amb-responders summary::after { content: '▼'; font-size: 10px; margin-left: 6px; transition: transform 0.2s ease; display: inline-block; }
+.amb-responders[open] summary::after { transform: rotate(180deg); }
+.amb-responders ul { margin: 8px 0 0 0; padding-left: 18px; font-size: 13px; color: #0f172a; }
+.amb-responders ul li { margin-bottom: 4px; }
+.amb-responders ul li:last-child { margin-bottom: 0; }
 .amb-actions { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
 .amb-btn { background: transparent; border: none; color: #1d72f3; font-size: 12px; font-weight: 800; cursor: pointer; padding: 0; letter-spacing: .2px; }
 .amb-btn:hover { text-decoration: underline; }
 .amb-badge { font-weight: 900; letter-spacing: .3px; }
+.amb-form-section { margin-bottom: 18px; }
+.amb-form-section h4 { margin: 0 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.small-btn { padding: 6px 10px; font-size: 12px; margin-top: 10px; }
 
 /* Resident management */
-.res-table .t-row { grid-template-columns: 180px 1fr 260px 160px 160px; }
+.res-table .t-row { grid-template-columns: 140px 1fr 200px 140px 120px 220px; }
+.res-table .t-row > div:last-child { 
+  display: flex; 
+  flex-direction: row;
+  gap: 8px; 
+  align-items: center; 
+  flex-wrap: nowrap;
+}
+.res-table .t-row > div:last-child .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .res-actions { display: flex; gap: 10px; align-items: center; }
 .icon-btn { background: transparent; border: none; cursor: pointer; padding: 0; color: #2563eb; }
 .icon-btn.delete { color: #ef4444; }
@@ -212,12 +215,6 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
 
 /* Form Actions */
 .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
-
-/* Avatar preview (removed with Personalization UI) */
-
-/* Password strength meter */
-.password-meter { width: 100%; height: 8px; background: #e5e7eb; border-radius: 6px; overflow: hidden; margin-top: 8px; }
-.password-meter-fill { height: 100%; width: 0%; background: #ef4444; transition: width .2s ease, background .2s ease; }
 
 /* Dark Mode Variables */
 [data-theme="dark"] {
@@ -434,10 +431,7 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
 .card:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(2,8,23,0.10); }
 .btn:hover { transform: translateY(-1px); }
 
-/* Page fade transitions
-   Purpose: Consistent enter/leave animations when navigating pages.
-   Match durations with the JS `navigateWithFade` helper (180–300ms).
-*/
+/* Page fade transitions */
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -460,9 +454,7 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
   will-change: transform, opacity;
 }
 
-/* Reduced motion accessibility
-   Honours user OS preference to minimize motion.
-*/
+/* Reduced motion accessibility */
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
   .page-enter, .page-leave { animation: none !important; }
@@ -482,22 +474,13 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
 .reports-viewing .t-body .t-row:nth-child(odd) { background: var(--card); }
 .reports-viewing .t-body .t-row:nth-child(even) { background: rgba(59, 130, 246, 0.02); }
 
-/* Reports Viewing Table Column Alignment - TV Display Optimized (Full Width)
-   Rationale:
-   - Uses CSS Grid to define fixed column widths for readability on TV.
-   - JS adds per-row staggered animations and persists user-resized widths.
-*/
+/* Reports Viewing Table Column Alignment - TV Display Optimized (Full Width) */
 .reports-viewing .t-row { 
   grid-template-columns: 150px 100px 250px 120px 160px 180px 120px 160px 130px 180px; 
   gap: 0; 
   position: relative;
 }
-/* Resizable columns
-   Technique:
-   - Each cell sets `resize: horizontal` so users can drag to adjust width.
-   - An ::after pseudo-element creates a wider drag hotspot at the right edge
-     for better usability. JS toggles `.resizing` for visual feedback.
-*/
+/* Resizable columns */
 .reports-viewing .t-row > div {
   position: relative;
   resize: horizontal;
@@ -748,16 +731,3 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
   font-size: 14px;
   font-weight: 500;
 }
-/* Resident Registration sizing */
-#resident-register-form .input { font-size: 16px; padding: 12px 14px; }
-#resident-register-form .form-grid { 
-  grid-template-columns: repeat(2, minmax(320px, 1fr));
-  column-gap: 20px; row-gap: 16px;
-}
-/* Staff Registration sizing */
-#register-form .input { font-size: 16px; padding: 12px 14px; }
-#register-form .form-grid {
-  grid-template-columns: repeat(2, minmax(320px, 1fr));
-  column-gap: 20px; row-gap: 16px;
-}
- 
