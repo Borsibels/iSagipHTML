@@ -451,30 +451,58 @@
         }
       });
 
-      // Emergency markers will be populated from backend/database
-      // TODO: Add emergency markers from database
-      var emergencies = [];
-
-      emergencies.forEach(function (em) {
-        var marker = new google.maps.Marker({
-          position: em.location,
-          map: map,
-          title: em.type + ': ' + em.description
+      var reportMarkers = [];
+      function typeColor(type) {
+        var t = (type || '').toString().toLowerCase();
+        if (t.includes('fire')) return 'orange';
+        if (t.includes('medical') || t.includes('injur')) return 'blue';
+        if (t.includes('police') || t.includes('criminal') || t.includes('hostile')) return 'purple';
+        if (t.includes('urgent') || t.includes('emergency')) return 'red';
+        return 'green';
+      }
+      function markerIcon(color) {
+        return {
+          url: 'http://maps.google.com/mapfiles/ms/icons/' + color + '-dot.png',
+          scaledSize: new google.maps.Size(32, 32)
+        };
+      }
+      window.updateISagipMapMarkers = function (items) {
+        if (!Array.isArray(items)) return;
+        reportMarkers.forEach(function (m) { m.setMap(null); });
+        reportMarkers = [];
+        items.forEach(function (r) {
+          var lat = parseFloat(r.latitude ?? r.lat);
+          var lng = parseFloat(r.longitude ?? r.lng);
+          if (!isFinite(lat) || !isFinite(lng)) return;
+          var marker = new google.maps.Marker({
+            position: { lat: lat, lng: lng },
+            map: map,
+            title: (r.type || 'Emergency') + (r.street ? (' - ' + r.street) : ''),
+            icon: markerIcon(typeColor(r.type))
+          });
+          marker.addListener('click', function () {
+            if (selectedMarker === marker) {
+              infoWindow.close();
+              selectedMarker = null;
+              return;
+            }
+            selectedMarker = marker;
+            var time = r.timestampLabel || r.timestamp || '';
+            var html = '<div><strong>' + (r.type || 'Emergency') + '</strong>'
+              + (r.status ? (' <span style="color:#64748b;">(' + r.status.toString().replace(/[_-]/g, ' ').replace(/\b\w/g, function(ch){ return ch.toUpperCase(); }) + ')</span>') : '')
+              + '<br/>' + (r.description || r.landmark || 'No description')
+              + (time ? '<br/><span style="font-size:12px;color:#666">Time: ' + time + '</span>' : '')
+              + '</div>';
+            infoWindow.setContent(html);
+            infoWindow.open(map, marker);
+          });
+          reportMarkers.push(marker);
         });
-
-        marker.addListener('click', function () {
-          if (selectedMarker === marker) {
-            infoWindow.close();
-            selectedMarker = null;
-            return;
-          }
-          selectedMarker = marker;
-          infoWindow.setContent('<div><strong>' + em.type + ' Emergency</strong><br/>' +
-            '<span>' + em.description + '</span><br/>' +
-            '<span style="font-size:12px;color:#666">Time: ' + em.timestamp + '</span></div>');
-          infoWindow.open(map, marker);
-        });
-      });
+      };
+      if (Array.isArray(window.iSagipPendingMarkersData)) {
+        window.updateISagipMapMarkers(window.iSagipPendingMarkersData);
+        window.iSagipPendingMarkersData = null;
+      }
 
       map.addListener('click', function () { 
         infoWindow.close(); 
@@ -625,6 +653,8 @@
         lastUpdatedBy: raw?.lastUpdatedBy || raw?.lastUpdatedByName || '',
         lastUpdatedAtLabel: raw?.lastUpdatedAt ? new Date(Number(raw.lastUpdatedAt)).toLocaleString() : '—',
         notes: raw?.residentNotes || raw?.notes || '',
+        latitude: (function(){ var v = parseFloat(raw?.latitude ?? raw?.lat); return isFinite(v) ? v : null; })(),
+        longitude: (function(){ var v = parseFloat(raw?.longitude ?? raw?.lng); return isFinite(v) ? v : null; })(),
         timestampMs: ts,
         timestampLabel: new Date(ts).toLocaleString(),
         responseMinutes: computeResponseMinutes(raw),
@@ -775,6 +805,10 @@
             var value = snapshot.val() || {};
             rawReports = value;
             reports = Object.keys(value).map(function(key){ return mapRawReport(key, value[key] || {}); });
+            if (Array.isArray(reports)) {
+              if (window.updateISagipMapMarkers) window.updateISagipMapMarkers(reports);
+              else window.iSagipPendingMarkersData = reports;
+            }
             ensureYearOptions();
             updateStats();
           },
@@ -2339,6 +2373,7 @@
 
       const currentUserRole = localStorage.getItem('iSagip_userRole') || '';
       const canManage = ['admin', 'system_admin', 'barangay_staff', 'responder'].includes(currentUserRole);
+      const canDelete = ['admin', 'system_admin', 'barangay_staff'].includes(currentUserRole);
 
       reportsTable.innerHTML = reports
         .map((report) => {
@@ -2357,6 +2392,13 @@
                     </button>`
                   : ''
               }
+              ${
+                canDelete
+                  ? `<button class="btn btn-small btn-danger" data-action="delete-report" data-id="${report.id}">
+                      Delete
+                    </button>`
+                  : ''
+              }
             </div>
           `;
 
@@ -2368,6 +2410,8 @@
               <div>${formatStatusBadge(report.status)}</div>
               <div>${escapeHtml(report.street)}</div>
               <div>${escapeHtml(report.landmark)}</div>
+              <div>${report.latitude != null ? report.latitude.toFixed(6) : '—'}</div>
+              <div>${report.longitude != null ? report.longitude.toFixed(6) : '—'}</div>
               <div>${photoCell}</div>
               <div>${actionButtons}</div>
               <div>${report.timestamp}</div>
@@ -2406,6 +2450,7 @@
     reportsTable.addEventListener('click', function (event) {
       const viewButton = event.target.closest('[data-action="view-report"]');
       const manageButton = event.target.closest('[data-action="manage-report"]');
+      const deleteButton = event.target.closest('[data-action="delete-report"]');
 
       if (viewButton) {
         const reportId = viewButton.getAttribute('data-id');
@@ -2422,6 +2467,28 @@
         if (raw) {
           openManageModal(reportId, raw);
         }
+        return;
+      }
+
+      if (deleteButton) {
+        const reportId = deleteButton.getAttribute('data-id');
+        if (!reportId) return;
+        const confirmMsg = 'Delete this report permanently? This cannot be undone.';
+        if (!confirm(confirmMsg)) return;
+        if (!databaseModule || !realtimeDb) {
+          alert('Database not ready. Please refresh and try again.');
+          return;
+        }
+        (async function(){
+          try {
+            const { ref, remove } = databaseModule;
+            await remove(ref(realtimeDb, `reports/${reportId}`));
+            alert('Report deleted.');
+          } catch (err) {
+            console.error('Failed to delete report:', err);
+            alert('Failed to delete report. Please try again.');
+          }
+        })();
       }
     });
 
@@ -2435,6 +2502,8 @@
           <div><strong>Type:</strong> ${escapeHtml(report.type)}</div>
           <div><strong>Street:</strong> ${escapeHtml(report.street)}</div>
           <div><strong>Landmark:</strong> ${escapeHtml(report.landmark)}</div>
+          <div><strong>Latitude:</strong> ${report.latitude != null ? report.latitude.toFixed(6) : '—'}</div>
+          <div><strong>Longitude:</strong> ${report.longitude != null ? report.longitude.toFixed(6) : '—'}</div>
           <div><strong>Reported By:</strong> ${escapeHtml(report.reportedBy)}</div>
           <div><strong>Timestamp:</strong> ${report.timestamp}</div>
           <div><strong>Response Time:</strong> ${report.responseTime || '—'}</div>
@@ -2670,6 +2739,8 @@
         status: raw.status || 'Pending',
         street: raw.street || 'N/A',
         landmark: raw.landmark || 'N/A',
+        latitude: (function(){ const v = parseFloat(raw.latitude ?? raw.lat); return isFinite(v) ? v : null; })(),
+        longitude: (function(){ const v = parseFloat(raw.longitude ?? raw.lng); return isFinite(v) ? v : null; })(),
         photo: raw.photoUrl || raw.photo || '',
         reportedBy: raw.userName || raw.reportedByName || raw.by || 'Unknown',
         notes: raw.residentNotes || raw.notes || '',
