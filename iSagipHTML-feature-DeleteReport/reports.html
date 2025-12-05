@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Received Reports</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app page-enter">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip Barangay Staff</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item active" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-resident.html">Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Emergency Reports Dashboard</h3>
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-title">Total Reports</div>
+              <div class="stat-value" id="r-total">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Average Response Time</div>
+              <div class="stat-value" id="r-avg">0 min</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Resolved Cases</div>
+              <div class="stat-value" id="r-resolved">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Active Cases</div>
+              <div class="stat-value" id="r-active">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Export</div>
+              <button class="btn btn-outline" id="reports-export-csv">EXPORT TO CSV</button>
+            </div>
+          </div>
+          <div class="section-actions" style="margin-top:12px;">
+            <button class="btn btn-primary" id="add-report-btn" hidden>+ Create Report</button>
+          </div>
+        </section>
+
+        <section class="card" style="overflow:auto;">
+          <h3 class="section-title">Recent Reports</h3>
+          <div class="table reports-table">
+            <div class="t-head t-row">
+              <div>ID</div>
+              <div>Type</div>
+              <div>Description</div>
+              <div>Status</div>
+              <div>Street</div>
+              <div>Landmark</div>
+              <div>Lat</div>
+              <div>Lng</div>
+              <div>Photo</div>
+              <div>Actions</div>
+              <div>Timestamp</div>
+              <div>Resp. Time</div>
+              <div>Reported By</div>
+              <div>Closed By</div>
+              <div>Updated By</div>
+              <div>Updated At</div>
+              <div>Notes</div>
+            </div>
+            <div class="t-body" id="reports-rows"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal" id="modal-details" hidden>
+      <div class="modal-dialog" style="max-width:900px;">
+        <div class="modal-header">
+          <div class="modal-title">Report Details</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body" id="details-content">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <!-- Left Column: Report Information -->
+            <div>
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary);">Report Information</h4>
+              <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>
+                  <span>Report ID</span>
+                  <input id="details-report-id" class="input" readonly />
+                </label>
+                <label>
+                  <span>Status</span>
+                  <input id="details-status" class="input" readonly />
+                </label>
+                <label>
+                  <span>Emergency Type</span>
+                  <input id="details-type" class="input" readonly />
+                </label>
+                <label>
+                  <span>Description</span>
+                  <textarea id="details-description" class="input" rows="3" readonly></textarea>
+                </label>
+                <label>
+                  <span>Street</span>
+                  <input id="details-street" class="input" readonly />
+                </label>
+                <label>
+                  <span>Landmark</span>
+                  <input id="details-landmark" class="input" readonly />
+                </label>
+                <label>
+                  <span>Location</span>
+                  <input id="details-location" class="input" readonly />
+                </label>
+                <label>
+                  <span>Reported By</span>
+                  <input id="details-reported-by" class="input" readonly />
+                </label>
+                <label>
+                  <span>Reported At</span>
+                  <input id="details-timestamp" class="input" readonly />
+                </label>
+                <label>
+                  <span>Response Time</span>
+                  <input id="details-response-time" class="input" readonly />
+                </label>
+                <label>
+                  <span>Closed By</span>
+                  <input id="details-closed-by" class="input" readonly />
+                </label>
+                <label>
+                  <span>Last Updated By</span>
+                  <input id="details-updated-by" class="input" readonly />
+                </label>
+                <label>
+                  <span>Last Updated At</span>
+                  <input id="details-updated-at" class="input" readonly />
+                </label>
+                <label>
+                  <span>Notes</span>
+                  <textarea id="details-notes" class="input" rows="3" readonly></textarea>
+                </label>
+              </div>
+            </div>
+            
+            <!-- Right Column: Report Photo -->
+            <div>
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary);">Report Photo</h4>
+              <div style="border: 2px dashed var(--outline); border-radius: 8px; padding: 16px; background: #f8fafc; min-height: 400px; display: grid; place-items: center;">
+                <div id="details-photo-container" style="width: 100%; text-align: center;">
+                  <img id="details-photo-preview" src="" alt="Report Photo" style="max-width: 100%; max-height: 400px; border-radius: 8px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
+                  <div id="details-photo-placeholder" style="color: var(--muted);">
+                    <div style="font-size: 48px; margin-bottom: 8px;">📷</div>
+                    <div>No photo available</div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button type="button" class="btn btn-outline" id="view-details-photo-fullscreen" style="flex: 1;">View Fullscreen</button>
+                <a id="download-details-photo" class="btn btn-outline" style="flex: 1; text-align: center; text-decoration: none;" download>Download Photo</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-outline" data-close>Close</button></div>
+      </div>
+    </div>
+
+    <!-- Fullscreen Details Photo Viewer Modal -->
+    <div class="modal" id="details-photo-fullscreen-modal" hidden>
+      <div class="modal-dialog" style="max-width: 95vw; max-height: 95vh; padding: 0;">
+        <div class="modal-header">
+          <div class="modal-title">Report Photo - Fullscreen View</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body" style="padding: 16px; text-align: center; overflow: auto; max-height: calc(95vh - 80px);">
+          <img id="details-photo-fullscreen-img" src="" alt="Report Photo" style="max-width: 100%; max-height: calc(95vh - 120px); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);" />
+        </div>
+      </div>
+    </div>
+
+    <!-- History Modal -->
+    <div class="modal" id="modal-history" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title">Report Edit History</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body">
+          <div class="table">
+            <div class="t-head t-row">
+              <div>Timestamp</div>
+              <div>Username</div>
+              <div>Action</div>
+              <div>Details</div>
+            </div>
+            <div class="t-body" id="history-rows"></div>
+          </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-outline" data-close>Close</button></div>
+      </div>
+    </div>
+
+    <!-- Manage Report Modal -->
+    <div class="modal" id="modal-manage-report" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title" id="manage-title">Update Report</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <form class="modal-body" id="manage-report-form">
+          <input type="hidden" id="manage-report-id" />
+          <div class="form-grid">
+            <label>
+              <span>Status *</span>
+              <select class="input" id="manage-status" required>
+                <option value="received">Received</option>
+                <option value="accepted">Accepted</option>
+                <option value="responding">Responding</option>
+                <option value="resolved">Resolved</option>
+                <option value="relayed">Relayed</option>
+              </select>
+            </label>
+            <label>
+              <span>Assigned Vehicle</span>
+              <select class="input" id="manage-vehicle">
+                <option value="">Select an ambulance</option>
+              </select>
+            </label>
+            <label style="grid-column:1/-1;">
+              <span>Notes / Instructions</span>
+              <textarea class="input" id="manage-notes" rows="3" placeholder="Add details for the responders..."></textarea>
+            </label>
+          </div>
+        </form>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-close>Cancel</button>
+          <button class="btn btn-primary" form="manage-report-form" type="submit">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div class="notification-container" id="notification-container"></div>
+    
+    <!-- Notification Sound Indicator -->
+    <div class="notification-sound-indicator" id="sound-indicator">
+      🔊 Notification sound played
+    </div>
+
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
+  </body>
+</html>
+
+

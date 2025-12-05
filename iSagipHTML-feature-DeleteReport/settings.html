@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - iSagip</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="bg-app page-enter">
+    <!-- Top Navigation Bar -->
+    <header class="topbar">
+        <div class="brand-inline">
+            <img src="public/iSagipLogo.png" alt="iSagip Logo" class="brand-inline-logo">
+            <span class="brand-inline-name">iSagip</span>
+        </div>
+        <div class="topbar-title">Settings</div>
+        <button id="logout" class="btn btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);">Logout</button>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="layout">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-brand">iSagip</div>
+            <div class="menu" id="sidebar-menu">
+                <a class="menu-item active" href="dashboard.html">Dashboard</a>
+                <a class="menu-item" href="reports.html">Reports</a>
+                <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+                <a class="menu-item" href="resident-management.html">Resident Management</a>
+                <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+                <a class="menu-item" href="settings.html">Settings</a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <div class="settings-container">
+                <h1 class="section-title">Settings</h1>
+                
+                <!-- Dark Mode Toggle -->
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h2>Appearance</h2>
+                        <p>Customize the look and feel of your dashboard</p>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-content">
+                            <div class="settings-item-info">
+                                <h3>Dark Mode</h3>
+                                <p>Switch between light and dark themes</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="dark-mode-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Settings -->
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h2>Security</h2>
+                        <p>Manage your account security settings</p>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-content">
+                            <div class="settings-item-info">
+                                <h3>Change Password</h3>
+                                <p>Update your account password</p>
+                            </div>
+                            <button class="btn btn-primary" id="change-password-btn">Change Password</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account Information -->
+                <div class="settings-section">
+                    <div class="settings-header">
+                        <h2>Account Information</h2>
+                        <p>View your current account details</p>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-content">
+                            <div class="settings-item-info">
+                                <h3>Current Role</h3>
+                                <p id="current-role-display">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal" id="change-password-modal" hidden>
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Change Password</h3>
+                <button class="modal-close" id="close-password-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="change-password-form" class="form">
+                    <label class="label" for="current-password">Current Password</label>
+                    <input id="current-password" class="input" type="password" placeholder="Enter current password" required>
+                    
+                    <label class="label" for="new-password">New Password</label>
+                    <input id="new-password" class="input" type="password" placeholder="Enter new password" required>
+                    
+                    <label class="label" for="confirm-password">Confirm New Password</label>
+                    <input id="confirm-password" class="input" type="password" placeholder="Confirm new password" required>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="cancel-password-change">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
+</body>
+</html>

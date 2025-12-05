@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ambulance Status</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app page-enter">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip Barangay Staff</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item active" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="register-resident.html">Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Ambulance Fleet Overview</h3>
+          
+          <div class="stats ambulance-summary">
+            <div class="stat">
+              <div class="stat-title">Total Units</div>
+              <div class="stat-value" id="amb-total">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Available</div>
+              <div class="stat-value" id="amb-available">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">In Use</div>
+              <div class="stat-value" id="amb-inuse">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Maintenance</div>
+              <div class="stat-value" id="amb-maintenance">0</div>
+            </div>
+          </div>
+
+          <h3 class="section-title" style="margin-top:24px;">Ambulance Status Management</h3>
+          <div class="ambulance-grid" id="ambulance-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal" id="ambulance-modal" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title" id="amb-form-title">Manage Ambulance</h3>
+          <button class="modal-close" data-close>&times;</button>
+        </div>
+        <form id="ambulance-form">
+          <div class="modal-body">
+            <div class="amb-form-section">
+              <h4>General Details</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Current Location</span>
+                  <input type="text" id="amb-location" class="input" placeholder="e.g., Central Station" readonly />
+                </label>
+                <div class="amb-responders-block" style="grid-column:1/-1;">
+                  <details id="amb-responders-dropdown">
+                    <summary>Responders</summary>
+                    <ul class="amb-responders-list" id="amb-responders-list">
+                      <li class="muted">No responders recorded</li>
+                    </ul>
+                  </details>
+                </div>
+              </div>
+            </div>
+
+            <div class="amb-form-section">
+              <h4>Current Assignment</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Report ID</span>
+                  <input type="text" id="amb-report-id" class="input" placeholder="REP-XXXX" readonly />
+                </label>
+                <label>
+                  <span class="label">Emergency Type</span>
+                  <input type="text" id="amb-report-type" class="input" placeholder="Medical, Fire, etc." readonly />
+                </label>
+                <label>
+                  <span class="label">Incident Location</span>
+                  <input type="text" id="amb-report-address" class="input" placeholder="Street / Landmark" readonly />
+                </label>
+              </div>
+            </div>
+
+            <div class="amb-form-section">
+              <h4>Maintenance</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Maintenance Note</span>
+                  <input type="text" id="amb-maint-note" class="input" placeholder="e.g., Radiator replacement" />
+                </label>
+                <label>
+                  <span class="label">Estimated Return</span>
+                  <input type="datetime-local" id="amb-maint-eta" class="input" />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-close>Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
+  </body>
+  </html>
+
+

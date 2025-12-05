@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Barangay Staff / Responder Registration</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip System Administrator</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item active" href="#">Barangay Staff Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Responder / Barangay Staff Registration</h3>
+          <form id="register-form" class="form" style="max-width:720px; margin:0 auto;">
+            <div class="form-grid">
+              <label>
+                <span>Role *</span>
+                <select id="reg-role" class="input">
+                  <option value="responder">Responder</option>
+                  <option value="barangay_staff">Barangay Staff</option>
+                </select>
+              </label>
+              <label id="reg-responder-type-wrap">
+                <span>Responder Type *</span>
+                <select id="reg-responder-type" class="input">
+                  <option>Fire</option>
+                  <option>Medic</option>
+                  <option>Tanod</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Username *</span>
+                <input id="reg-username" class="input" />
+              </label>
+              <label>
+                <span>Email *</span>
+                <input id="reg-email" class="input" />
+              </label>
+
+              <label>
+                <span>Password *</span>
+                <input id="reg-password" class="input" type="password" />
+              </label>
+              <label>
+                <span>Confirm Password *</span>
+                <input id="reg-password2" class="input" type="password" />
+              </label>
+
+              <label>
+                <span>First name *</span>
+                <input id="reg-first" class="input" />
+              </label>
+              <label>
+                <span>Middle name</span>
+                <input id="reg-middle" class="input" />
+              </label>
+              <label>
+                <span>Last name *</span>
+                <input id="reg-last" class="input" />
+              </label>
+              <label>
+                <span>Age *</span>
+                <input id="reg-age" class="input" />
+              </label>
+              <label>
+                <span>Birth date *</span>
+                <input id="reg-birth" class="input" placeholder="mm/dd/yyyy" />
+              </label>
+              <label>
+                <span>Contact Number *</span>
+                <input id="reg-contact" class="input" />
+              </label>
+              <label style="grid-column:1/-1;">
+                <span>Address *</span>
+                <input id="reg-address" class="input" />
+              </label>
+            </div>
+            <div style="margin-top:16px; display:grid; place-items:center;">
+              <button class="btn btn-primary" id="reg-submit" type="submit">REGISTER</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <script src="assets/js/script.js"></script>
+    <script>
+      (function(){
+        var roleSel = document.getElementById('reg-role');
+        var typeWrap = document.getElementById('reg-responder-type-wrap');
+        function toggleType(){ typeWrap.style.display = (roleSel.value === 'responder') ? '' : 'none'; }
+        roleSel.addEventListener('change', toggleType); toggleType();
+      })();
+    </script>
+  </body>
+  </html>
+
+
