@@ -125,8 +125,8 @@
    */
   function getDestinationForRole(role) {
     const roleDestinations = {
-      'admin': 'register-staff.html',           // Admin → Registration pages
-      'system_admin': 'register-staff.html',     // System admin → Registration pages
+      'admin': 'mass-register-staff.html',           // Admin → Mass Registration pages
+      'system_admin': 'mass-register-staff.html',     // System admin → Mass Registration pages
       'barangay_staff': 'dashboard.html',        // Barangay staff → Dashboard
       'responder': 'dashboard.html',             // Responder → Dashboard
       'live_viewer': 'reportsViewing.html'      // Live viewer → Reports viewing
