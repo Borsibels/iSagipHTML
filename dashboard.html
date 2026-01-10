@@ -26,13 +26,43 @@
         </nav>
       </aside>
 
-      <main class="content">
-        <section class="card">
-          <h3 class="section-title">Emergency Locations Map</h3>
+      <main class="content" id="dashboard-content">
+        <section class="card draggable resizable" data-card-id="map-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 class="section-title" style="margin: 0;">Emergency Locations Map</h3>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
+                <input type="checkbox" id="toggle-heatmaps" checked style="cursor: pointer;" />
+                <span>Show Hotspots</span>
+              </label>
+              <div style="display: flex; gap: 12px; font-size: 12px; color: var(--muted); flex-wrap: wrap;">
+                <span style="display: flex; align-items: center; gap: 4px;">
+                  <span style="display: inline-block; width: 12px; height: 12px; background: #ff0000; border-radius: 50%;"></span>
+                  Fire
+                </span>
+                <span style="display: flex; align-items: center; gap: 4px;">
+                  <span style="display: inline-block; width: 12px; height: 12px; background: #0066ff; border-radius: 50%;"></span>
+                  Medical
+                </span>
+                <span style="display: flex; align-items: center; gap: 4px;">
+                  <span style="display: inline-block; width: 12px; height: 12px; background: #800080; border-radius: 50%;"></span>
+                  Police
+                </span>
+                <span style="display: flex; align-items: center; gap: 4px;">
+                  <span style="display: inline-block; width: 12px; height: 12px; background: #ffa500; border-radius: 50%;"></span>
+                  Urgent
+                </span>
+                <span style="display: flex; align-items: center; gap: 4px;">
+                  <span style="display: inline-block; width: 12px; height: 12px; background: #00aa00; border-radius: 50%;"></span>
+                  General
+                </span>
+              </div>
+            </div>
+          </div>
           <div id="map" class="map-canvas" aria-label="Emergency Locations Map"></div>
         </section>
 
-        <section class="card">
+        <section class="card draggable resizable" data-card-id="ongoing-card">
           <h3 class="section-title">🚑 Ongoing Emergency Response</h3>
           <div class="ongoing" id="ongoing-emergency">
             <div class="ongoing-illustration" aria-hidden="true">🚑</div>
@@ -47,7 +77,7 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card draggable resizable" data-card-id="stats-card">
           <div class="filters">
             <label>
               <span>Filter</span>
@@ -101,11 +131,16 @@
             <div class="stat">
               <div class="stat-title">Export Data</div>
               <button class="btn btn-outline" id="export-csv">EXPORT AS CSV</button>
-              <button class="btn btn-secondary" id="test-notification-btn" style="background: #10b981;">Test Notification</button>
             </div>
           </div>
         </section>
       </main>
+    </div>
+
+    <!-- Dashboard Edit Controls -->
+    <div class="dashboard-edit-controls" id="dashboard-edit-controls">
+      <button class="btn-edit-mode" id="toggle-edit-mode">✏️ Customize Layout</button>
+      <button class="btn-reset-layout" id="reset-layout" style="display: none;">🔄 Reset Layout</button>
     </div>
 
     <!-- Notification Container -->
@@ -152,8 +187,358 @@
     
     <script src="assets/js/script.js"></script>
     <!-- Replace YOUR_API_KEY with your actual key after this change -->
-    <script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMeYxYAoOmqAcEeCCqtyRHHLDT5vvftJQ&callback=initISagipMap"></script>
+    <script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMeYxYAoOmqAcEeCCqtyRHHLDT5vvftJQ&libraries=visualization&callback=initISagipMap"></script>
+    <script>
+      // Setup heatmap toggle
+      (function() {
+        var toggle = document.getElementById('toggle-heatmaps');
+        if (toggle) {
+          toggle.addEventListener('change', function() {
+            if (window.toggleISagipHeatmaps) {
+              window.toggleISagipHeatmaps(this.checked);
+            }
+          });
+        }
+      })();
+    </script>
+
+    <!-- Customizable Dashboard Script -->
+    <script>
+      (function() {
+        var editMode = false;
+        var content = document.getElementById('dashboard-content');
+        var layout = document.querySelector('.layout');
+        var toggleBtn = document.getElementById('toggle-edit-mode');
+        var resetBtn = document.getElementById('reset-layout');
+        var cards = document.querySelectorAll('.card.draggable');
+        var draggedElement = null;
+        var draggedOverElement = null;
+        var resizeHandle = null;
+        var isResizing = false;
+        var startX, startY, startWidth, startHeight, startLeft, startTop;
+        var layoutStorageKey = 'iSagip_dashboard_layout';
+
+        // Load saved layout
+        function loadLayout() {
+          try {
+            var saved = localStorage.getItem(layoutStorageKey);
+            if (saved) {
+              var savedLayout = JSON.parse(saved);
+              cards.forEach(function(card) {
+                var cardId = card.getAttribute('data-card-id');
+                if (savedLayout[cardId]) {
+                  card.style.position = 'absolute';
+                  card.style.left = savedLayout[cardId].left + 'px';
+                  card.style.top = savedLayout[cardId].top + 'px';
+                  card.style.width = savedLayout[cardId].width + 'px';
+                  card.style.height = savedLayout[cardId].height + 'px';
+                  card.style.margin = '0';
+                  
+                  // Update map height if it's the map card
+                  var mapEl = card.querySelector('#map');
+                  if (mapEl && savedLayout[cardId].height) {
+                    var headerHeight = card.querySelector('.section-title') ? 60 : 0;
+                    mapEl.style.height = (savedLayout[cardId].height - headerHeight - 48) + 'px';
+                  }
+                }
+              });
+              // Update content size after loading layout
+              setTimeout(updateContentSize, 100);
+            }
+          } catch (e) {
+            console.error('Failed to load layout:', e);
+          }
+        }
+
+        // Save layout
+        function saveLayout() {
+          try {
+            var layout = {};
+            cards.forEach(function(card) {
+              var cardId = card.getAttribute('data-card-id');
+              var rect = card.getBoundingClientRect();
+              var contentRect = content.getBoundingClientRect();
+              layout[cardId] = {
+                left: rect.left - contentRect.left,
+                top: rect.top - contentRect.top,
+                width: rect.width,
+                height: rect.height
+              };
+            });
+            localStorage.setItem(layoutStorageKey, JSON.stringify(layout));
+          } catch (e) {
+            console.error('Failed to save layout:', e);
+          }
+        }
+
+        // Update content area size based on card positions
+        function updateContentSize() {
+          if (!editMode) return;
+          
+          var maxRight = 0;
+          var maxBottom = 0;
+          
+          cards.forEach(function(card) {
+            if (card.style.position === 'absolute') {
+              var left = parseFloat(card.style.left) || 0;
+              var top = parseFloat(card.style.top) || 0;
+              var width = parseFloat(card.style.width) || card.offsetWidth;
+              var height = parseFloat(card.style.height) || card.offsetHeight;
+              
+              var cardRight = left + width;
+              var cardBottom = top + height;
+              
+              maxRight = Math.max(maxRight, cardRight);
+              maxBottom = Math.max(maxBottom, cardBottom);
+            } else {
+              // Fallback for cards not yet positioned
+              var rect = card.getBoundingClientRect();
+              var contentRect = content.getBoundingClientRect();
+              var cardRight = (rect.left - contentRect.left) + rect.width;
+              var cardBottom = (rect.top - contentRect.top) + rect.height;
+              
+              maxRight = Math.max(maxRight, cardRight);
+              maxBottom = Math.max(maxBottom, cardBottom);
+            }
+          });
+          
+          // Add padding (40px bottom, 20px top)
+          var minHeight = Math.max(maxBottom + 40, window.innerHeight - 52);
+          content.style.minHeight = minHeight + 'px';
+          content.style.width = '100%';
+        }
+
+        // Toggle edit mode
+        function toggleEditMode() {
+          editMode = !editMode;
+          content.classList.toggle('edit-mode', editMode);
+          if (layout) layout.classList.toggle('edit-mode', editMode);
+          document.body.classList.toggle('edit-mode', editMode);
+          
+          cards.forEach(function(card) {
+            card.classList.toggle('edit-mode', editMode);
+            if (editMode) {
+              // Add resize handles
+              if (!card.querySelector('.resize-handle')) {
+                var handleSE = document.createElement('div');
+                handleSE.className = 'resize-handle se';
+                card.appendChild(handleSE);
+                
+                var handleE = document.createElement('div');
+                handleE.className = 'resize-handle e';
+                card.appendChild(handleE);
+                
+                var handleS = document.createElement('div');
+                handleS.className = 'resize-handle s';
+                card.appendChild(handleS);
+              }
+              
+              // Make cards positionable
+              if (!card.style.position || card.style.position === 'static') {
+                var rect = card.getBoundingClientRect();
+                var contentRect = content.getBoundingClientRect();
+                card.style.position = 'absolute';
+                card.style.left = (rect.left - contentRect.left) + 'px';
+                card.style.top = (rect.top - contentRect.top) + 'px';
+                card.style.width = rect.width + 'px';
+                card.style.height = 'auto';
+                card.style.margin = '0';
+              }
+              
+              // Initialize resize after a short delay to ensure handles are added
+              setTimeout(function() {
+                initResize();
+                updateContentSize();
+              }, 100);
+            } else {
+              // Save layout when exiting edit mode
+              saveLayout();
+              content.style.minHeight = '';
+            }
+          });
+          
+          toggleBtn.textContent = editMode ? '✓ Done Editing' : '✏️ Customize Layout';
+          toggleBtn.classList.toggle('active', editMode);
+          resetBtn.style.display = editMode ? 'block' : 'none';
+        }
+
+        // Drag and Drop
+        function initDragAndDrop() {
+          cards.forEach(function(card) {
+            card.addEventListener('mousedown', function(e) {
+              if (!editMode) return;
+              if (e.target.classList.contains('resize-handle')) return;
+              
+              draggedElement = card;
+              card.classList.add('dragging');
+              
+              var rect = card.getBoundingClientRect();
+              var offsetX = e.clientX - rect.left;
+              var offsetY = e.clientY - rect.top;
+              
+              function onMouseMove(e) {
+                if (!draggedElement) return;
+                
+                var contentRect = content.getBoundingClientRect();
+                var newLeft = e.clientX - contentRect.left - offsetX;
+                var newTop = e.clientY - contentRect.top - offsetY;
+                
+                // Allow dragging beyond initial viewport - no constraints
+                newLeft = Math.max(0, newLeft);
+                newTop = Math.max(0, newTop);
+                
+                draggedElement.style.left = newLeft + 'px';
+                draggedElement.style.top = newTop + 'px';
+                
+                // Update content size as cards are moved
+                updateContentSize();
+                
+                // Check for overlap with other cards
+                cards.forEach(function(otherCard) {
+                  if (otherCard === draggedElement) return;
+                  var otherRect = otherCard.getBoundingClientRect();
+                  var cardRect = draggedElement.getBoundingClientRect();
+                  
+                  if (cardRect.left < otherRect.right && cardRect.right > otherRect.left &&
+                      cardRect.top < otherRect.bottom && cardRect.bottom > otherRect.top) {
+                    otherCard.classList.add('drag-over');
+                  } else {
+                    otherCard.classList.remove('drag-over');
+                  }
+                });
+              }
+              
+              function onMouseUp() {
+                if (draggedElement) {
+                  draggedElement.classList.remove('dragging');
+                  cards.forEach(function(c) { c.classList.remove('drag-over'); });
+                  draggedElement = null;
+                  saveLayout();
+                }
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+              }
+              
+              document.addEventListener('mousemove', onMouseMove);
+              document.addEventListener('mouseup', onMouseUp);
+              e.preventDefault();
+            });
+          });
+        }
+
+        // Resize functionality
+        function initResize() {
+          cards.forEach(function(card) {
+            var handles = card.querySelectorAll('.resize-handle');
+            handles.forEach(function(handle) {
+              handle.addEventListener('mousedown', function(e) {
+                if (!editMode) return;
+                
+                isResizing = true;
+                resizeHandle = handle;
+                var rect = card.getBoundingClientRect();
+                var contentRect = content.getBoundingClientRect();
+                
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = rect.width;
+                startHeight = rect.height;
+                startLeft = rect.left - contentRect.left;
+                startTop = rect.top - contentRect.top;
+                
+                function onMouseMove(e) {
+                  if (!isResizing) return;
+                  
+                  var deltaX = e.clientX - startX;
+                  var deltaY = e.clientY - startY;
+                  var contentRect = content.getBoundingClientRect();
+                  
+                  if (resizeHandle.classList.contains('se')) {
+                    // Southeast corner - resize both width and height
+                    var newWidth = Math.max(300, startWidth + deltaX);
+                    var newHeight = Math.max(200, startHeight + deltaY);
+                    card.style.width = newWidth + 'px';
+                    card.style.height = newHeight + 'px';
+                    
+                    // Update map height if it's the map card
+                    var mapEl = card.querySelector('#map');
+                    if (mapEl) {
+                      var headerHeight = card.querySelector('.section-title') ? 60 : 0;
+                      mapEl.style.height = (newHeight - headerHeight - 48) + 'px';
+                    }
+                    
+                    // Update content size
+                    updateContentSize();
+                  } else if (resizeHandle.classList.contains('e')) {
+                    // East edge - resize width
+                    var newWidth = Math.max(300, startWidth + deltaX);
+                    card.style.width = newWidth + 'px';
+                    
+                    // Update content size
+                    updateContentSize();
+                  } else if (resizeHandle.classList.contains('s')) {
+                    // South edge - resize height
+                    var newHeight = Math.max(200, startHeight + deltaY);
+                    card.style.height = newHeight + 'px';
+                    
+                    // Update map height if it's the map card
+                    var mapEl = card.querySelector('#map');
+                    if (mapEl) {
+                      var headerHeight = card.querySelector('.section-title') ? 60 : 0;
+                      mapEl.style.height = (newHeight - headerHeight - 48) + 'px';
+                    }
+                    
+                    // Update content size
+                    updateContentSize();
+                  }
+                }
+                
+                function onMouseUp() {
+                  isResizing = false;
+                  resizeHandle = null;
+                  saveLayout();
+                  document.removeEventListener('mousemove', onMouseMove);
+                  document.removeEventListener('mouseup', onMouseUp);
+                }
+                
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                e.preventDefault();
+                e.stopPropagation();
+              });
+            });
+          });
+        }
+
+        // Reset layout
+        function resetLayout() {
+          if (confirm('Are you sure you want to reset the dashboard layout to default?')) {
+            localStorage.removeItem(layoutStorageKey);
+            cards.forEach(function(card) {
+              card.style.position = '';
+              card.style.left = '';
+              card.style.top = '';
+              card.style.width = '';
+              card.style.height = '';
+              card.style.margin = '';
+            });
+            location.reload();
+          }
+        }
+
+        // Initialize
+        if (toggleBtn) {
+          toggleBtn.addEventListener('click', toggleEditMode);
+        }
+        if (resetBtn) {
+          resetBtn.addEventListener('click', resetLayout);
+        }
+        
+        loadLayout();
+        initDragAndDrop();
+      })();
+    </script>
   </body>
-  </html>
+</html>
 
 

@@ -413,6 +413,15 @@
       });
 
       var reportMarkers = [];
+      var heatmaps = {
+        fire: null,
+        medical: null,
+        police: null,
+        urgent: null,
+        general: null
+      };
+      var heatmapsVisible = true;
+      
       function typeColor(type) {
         var t = (type || '').toString().toLowerCase();
         if (t.includes('fire')) return 'orange';
@@ -427,6 +436,134 @@
           scaledSize: new google.maps.Size(32, 32)
         };
       }
+      
+      // Helper function to categorize report type
+      function getReportCategory(type) {
+        var t = (type || '').toString().toLowerCase();
+        if (t.includes('fire')) return 'fire';
+        if (t.includes('medical') || t.includes('injur')) return 'medical';
+        if (t.includes('police') || t.includes('criminal') || t.includes('hostile')) return 'police';
+        if (t.includes('urgent') || t.includes('emergency')) return 'urgent';
+        return 'general';
+      }
+      
+      // Create heatmap layers
+      function createHeatmapLayer(data, gradient) {
+        if (!google.maps.visualization || !google.maps.visualization.HeatmapLayer) {
+          console.warn('Google Maps Visualization library not loaded');
+          return null;
+        }
+        return new google.maps.visualization.HeatmapLayer({
+          data: data,
+          map: heatmapsVisible ? map : null,
+          gradient: gradient,
+          radius: 50,
+          opacity: 0.6,
+          maxIntensity: 10
+        });
+      }
+      
+      // Update heatmaps based on reports
+      function updateHeatmaps(items) {
+        if (!Array.isArray(items) || !google.maps.visualization) return;
+        
+        var dataByCategory = {
+          fire: [],
+          medical: [],
+          police: [],
+          urgent: [],
+          general: []
+        };
+        
+        items.forEach(function (r) {
+          var lat = parseFloat(r.latitude ?? r.lat);
+          var lng = parseFloat(r.longitude ?? r.lng);
+          if (!isFinite(lat) || !isFinite(lng)) return;
+          
+          var category = getReportCategory(r.type);
+          var point = new google.maps.LatLng(lat, lng);
+          
+          if (dataByCategory[category]) {
+            dataByCategory[category].push(point);
+          }
+        });
+        
+        // Remove existing heatmaps
+        Object.keys(heatmaps).forEach(function(key) {
+          if (heatmaps[key]) {
+            heatmaps[key].setMap(null);
+            heatmaps[key] = null;
+          }
+        });
+        
+        // Create new heatmaps with color gradients
+        // Fire - Red gradient
+        if (dataByCategory.fire.length > 0) {
+          heatmaps.fire = createHeatmapLayer(dataByCategory.fire, [
+            'rgba(255, 0, 0, 0)',
+            'rgba(255, 0, 0, 0.4)',
+            'rgba(255, 100, 0, 0.6)',
+            'rgba(255, 0, 0, 0.8)',
+            'rgba(200, 0, 0, 1)'
+          ]);
+        }
+        
+        // Medical - Blue gradient
+        if (dataByCategory.medical.length > 0) {
+          heatmaps.medical = createHeatmapLayer(dataByCategory.medical, [
+            'rgba(0, 0, 255, 0)',
+            'rgba(0, 100, 255, 0.4)',
+            'rgba(0, 150, 255, 0.6)',
+            'rgba(0, 100, 255, 0.8)',
+            'rgba(0, 50, 200, 1)'
+          ]);
+        }
+        
+        // Police - Purple gradient
+        if (dataByCategory.police.length > 0) {
+          heatmaps.police = createHeatmapLayer(dataByCategory.police, [
+            'rgba(128, 0, 128, 0)',
+            'rgba(150, 50, 200, 0.4)',
+            'rgba(160, 80, 220, 0.6)',
+            'rgba(140, 40, 180, 0.8)',
+            'rgba(100, 0, 150, 1)'
+          ]);
+        }
+        
+        // Urgent/Emergency - Orange/Yellow gradient
+        if (dataByCategory.urgent.length > 0) {
+          heatmaps.urgent = createHeatmapLayer(dataByCategory.urgent, [
+            'rgba(255, 165, 0, 0)',
+            'rgba(255, 200, 0, 0.4)',
+            'rgba(255, 220, 50, 0.6)',
+            'rgba(255, 180, 0, 0.8)',
+            'rgba(255, 140, 0, 1)'
+          ]);
+        }
+        
+        // General/Other - Green gradient
+        if (dataByCategory.general.length > 0) {
+          heatmaps.general = createHeatmapLayer(dataByCategory.general, [
+            'rgba(0, 128, 0, 0)',
+            'rgba(50, 180, 50, 0.4)',
+            'rgba(100, 200, 100, 0.6)',
+            'rgba(50, 160, 50, 0.8)',
+            'rgba(0, 120, 0, 1)'
+          ]);
+        }
+      }
+      
+      // Toggle heatmaps visibility
+      window.toggleISagipHeatmaps = function(visible) {
+        heatmapsVisible = visible !== undefined ? visible : !heatmapsVisible;
+        Object.keys(heatmaps).forEach(function(key) {
+          if (heatmaps[key]) {
+            heatmaps[key].setMap(heatmapsVisible ? map : null);
+          }
+        });
+        return heatmapsVisible;
+      };
+      
       window.updateISagipMapMarkers = function (items) {
         if (!Array.isArray(items)) return;
         reportMarkers.forEach(function (m) { m.setMap(null); });
@@ -459,6 +596,9 @@
           });
           reportMarkers.push(marker);
         });
+        
+        // Update heatmaps when markers are updated
+        updateHeatmaps(items);
       };
       if (Array.isArray(window.iSagipPendingMarkersData)) {
         window.updateISagipMapMarkers(window.iSagipPendingMarkersData);
@@ -502,6 +642,7 @@
     var reports = [];
     var rawReports = {};
     var yearsAvailable = [];
+    var previousReportIds = new Set(); // Track previous reports to detect new ones
 
     function showToast(message){
       if (!notifContainer) { alert(message); return; }
@@ -512,6 +653,133 @@
       setTimeout(function(){ el.classList.add('show'); }, 10);
       setTimeout(function(){ el.classList.remove('show'); }, 2500);
       setTimeout(function(){ el.remove(); }, 3000);
+    }
+
+    /**
+     * Play notification sound when a new report is received
+     * Uses Web Audio API to generate an emergency notification tone
+     */
+    function playNotificationSound() {
+      try {
+        // Create audio context
+        var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create oscillator for notification sound
+        var oscillator = audioContext.createOscillator();
+        var gainNode = audioContext.createGain();
+        
+        // Connect nodes
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Configure sound (emergency notification tone - alert pattern)
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.3);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.4);
+        
+        // Configure volume (fade in/out for smoother sound)
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.39);
+        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+        
+        // Play sound
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+        
+        // Show sound indicator if available
+        var soundIndicator = document.getElementById('sound-indicator');
+        if (soundIndicator) {
+          soundIndicator.classList.add('show');
+          setTimeout(function() {
+            soundIndicator.classList.remove('show');
+          }, 2000);
+        }
+      } catch (error) {
+        console.log('Could not play notification sound:', error);
+      }
+    }
+
+    /**
+     * Check for new reports and trigger notifications
+     * @param {Array} currentReports - Current list of reports
+     */
+    function checkForNewReports(currentReports) {
+      if (!currentReports || currentReports.length === 0) return;
+      
+      var currentReportIds = new Set();
+      var newReports = [];
+      
+      // Collect current report IDs and find new ones
+      currentReports.forEach(function(report) {
+        if (report.id) {
+          currentReportIds.add(report.id);
+          // If this report wasn't in previous set, it's new
+          if (!previousReportIds.has(report.id)) {
+            newReports.push(report);
+          }
+        }
+      });
+      
+      // If there are new reports, play sound and show notification
+      if (newReports.length > 0) {
+        // Play notification sound
+        playNotificationSound();
+        
+        // Show visual notification for the first new report
+        if (newReports.length > 0 && notifContainer) {
+          var newReport = newReports[0]; // Show notification for the most recent
+          var reportType = newReport.type || 'Emergency';
+          var reportDesc = newReport.description || newReport.landmark || 'No description';
+          var reportLocation = newReport.street || 'Location not specified';
+          
+          var notification = document.createElement('div');
+          notification.className = 'notification emergency';
+          notification.innerHTML = 
+            '<div class="notification-header">' +
+              '<div class="notification-title">🚨 New Emergency Report</div>' +
+              '<button class="notification-close">&times;</button>' +
+            '</div>' +
+            '<div class="notification-body">' +
+              '<strong>Type:</strong> ' + reportType + '<br>' +
+              '<strong>Description:</strong> ' + reportDesc.substring(0, 50) + (reportDesc.length > 50 ? '...' : '') + '<br>' +
+              '<strong>Location:</strong> ' + reportLocation.substring(0, 40) + (reportLocation.length > 40 ? '...' : '') +
+            '</div>' +
+            '<div class="notification-time">' + new Date().toLocaleTimeString() + '</div>';
+          
+          notifContainer.appendChild(notification);
+          
+          // Animate notification in
+          setTimeout(function() {
+            notification.classList.add('show');
+          }, 10);
+          
+          // Auto-remove after 5 seconds
+          setTimeout(function() {
+            notification.classList.remove('show');
+            setTimeout(function() {
+              if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+              }
+            }, 300);
+          }, 5000);
+          
+          // Handle close button
+          notification.querySelector('.notification-close').addEventListener('click', function() {
+            notification.classList.remove('show');
+            setTimeout(function() {
+              if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+              }
+            }, 300);
+          });
+        }
+      }
+      
+      // Update previous report IDs for next check
+      previousReportIds = currentReportIds;
     }
 
     function normalizeType(value){
@@ -772,7 +1040,24 @@
           function(snapshot){
             var value = snapshot.val() || {};
             rawReports = value;
+            var previousReportsCount = reports.length;
             reports = Object.keys(value).map(function(key){ return mapRawReport(key, value[key] || {}); });
+            
+            // Check for new reports and play sound notification
+            if (reports.length > previousReportsCount || previousReportsCount === 0) {
+              // Only check for new reports if we had previous reports (skip initial load)
+              if (previousReportsCount > 0) {
+                checkForNewReports(reports);
+              } else {
+                // Initialize previous report IDs on first load
+                reports.forEach(function(report) {
+                  if (report.id) {
+                    previousReportIds.add(report.id);
+                  }
+                });
+              }
+            }
+            
             if (Array.isArray(reports)) {
               if (window.updateISagipMapMarkers) window.updateISagipMapMarkers(reports);
               else window.iSagipPendingMarkersData = reports;
@@ -1418,6 +1703,115 @@
         alert('Unable to save ambulance details. Please try again.');
       }
     });
+
+    // Add Vehicle functionality
+    var addVehicleBtn = document.getElementById('add-vehicle-btn');
+    var addVehicleModal = document.getElementById('add-vehicle-modal');
+    var addVehicleForm = document.getElementById('add-vehicle-form');
+    var addVehicleNameInput = document.getElementById('add-vehicle-name');
+    var addVehicleCallsignInput = document.getElementById('add-vehicle-callsign');
+    var addVehicleLocationInput = document.getElementById('add-vehicle-location');
+    var addVehicleStatusInput = document.getElementById('add-vehicle-status');
+
+    function openAddVehicleModal() {
+      if (addVehicleModal) {
+        addVehicleModal.hidden = false;
+        if (addVehicleForm) addVehicleForm.reset();
+        if (addVehicleLocationInput) addVehicleLocationInput.value = 'Central Station Garage';
+        if (addVehicleStatusInput) addVehicleStatusInput.value = 'AVAILABLE';
+        if (addVehicleNameInput) addVehicleNameInput.focus();
+      }
+    }
+
+    function closeAddVehicleModal() {
+      if (addVehicleModal) {
+        addVehicleModal.hidden = true;
+      }
+      if (addVehicleForm) {
+        addVehicleForm.reset();
+      }
+    }
+
+    if (addVehicleBtn) {
+      addVehicleBtn.addEventListener('click', function() {
+        openAddVehicleModal();
+      });
+    }
+
+    if (addVehicleModal) {
+      addVehicleModal.addEventListener('click', function(e) {
+        if (e.target === addVehicleModal || e.target.hasAttribute('data-close')) {
+          closeAddVehicleModal();
+        }
+      });
+    }
+
+    if (addVehicleForm) {
+      addVehicleForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        var vehicleName = addVehicleNameInput?.value.trim();
+        if (!vehicleName) {
+          alert('Please enter a vehicle name.');
+          return;
+        }
+
+        var vehicleCallsign = addVehicleCallsignInput?.value.trim() || '';
+        var vehicleLocation = addVehicleLocationInput?.value.trim() || 'Central Station Garage';
+        var vehicleStatus = addVehicleStatusInput?.value || 'AVAILABLE';
+
+        try {
+          await createNewVehicle({
+            name: vehicleName,
+            callsign: vehicleCallsign,
+            location: vehicleLocation,
+            status: vehicleStatus
+          });
+          closeAddVehicleModal();
+          alert('Vehicle added successfully!');
+        } catch (error) {
+          console.error('Failed to add vehicle:', error);
+          alert('Unable to add vehicle. Please try again.');
+        }
+      });
+    }
+
+    async function createNewVehicle(vehicleData) {
+      if (!databaseModule || !realtimeDb) {
+        await waitForFirebaseApp();
+        if (!databaseModule) {
+          databaseModule = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js");
+        }
+        if (!realtimeDb) {
+          var getDatabase = databaseModule.getDatabase;
+          realtimeDb = getDatabase(window.iSagipApp, REALTIME_DB_URL);
+        }
+      }
+
+      var ref = databaseModule.ref;
+      var set = databaseModule.set;
+      var actor = localStorage.getItem('iSagip_userUID') || 'staff';
+      
+      // Generate a unique ID for the vehicle (using timestamp + random)
+      var vehicleId = 'AMB-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+      
+      var newVehicle = {
+        name: vehicleData.name,
+        callsign: vehicleData.callsign || '',
+        location: vehicleData.location || 'Central Station Garage',
+        status: vehicleData.status || 'AVAILABLE',
+        assignment: null,
+        assignmentId: null,
+        maintenanceNote: '',
+        maintenanceEta: null,
+        lastUpdated: Date.now(),
+        lastUpdatedBy: actor,
+        createdAt: Date.now()
+      };
+
+      var vehicleRef = ref(realtimeDb, 'ambulances/' + vehicleId);
+      return set(vehicleRef, newVehicle);
+    }
   })();
 
   // ========================================
@@ -2635,6 +3029,7 @@
     let databaseModule = null;
     let reports = [];
     let rawReports = {};
+    let previousReportIds = new Set(); // Track previous reports to detect new ones
 
     init();
 
@@ -2663,9 +3058,25 @@
           (snapshot) => {
             const value = snapshot.val() || {};
             rawReports = value;
+            const previousReportsCount = reports.length;
             reports = Object.entries(value)
               .map(([id, data]) => mapReport(id, data))
               .sort((a, b) => (b.rawTimestamp || 0) - (a.rawTimestamp || 0));
+
+            // Check for new reports and play sound notification
+            if (reports.length > previousReportsCount || previousReportsCount === 0) {
+              // Only check for new reports if we had previous reports (skip initial load)
+              if (previousReportsCount > 0) {
+                checkForNewReportsInReportsPage(reports);
+              } else {
+                // Initialize previous report IDs on first load
+                reports.forEach(function(report) {
+                  if (report.id) {
+                    previousReportIds.add(report.id);
+                  }
+                });
+              }
+            }
 
             renderReports();
             updateStats();
@@ -2683,6 +3094,65 @@
       } catch (error) {
         console.error('Failed to initialize reports page:', error);
       }
+    }
+
+    /**
+     * Play notification sound when a new report is received (for reports page)
+     */
+    function playNotificationSoundReportsPage() {
+      try {
+        var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        var oscillator = audioContext.createOscillator();
+        var gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Configure sound (emergency notification tone)
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.3);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.4);
+        
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.39);
+        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+      } catch (error) {
+        console.log('Could not play notification sound:', error);
+      }
+    }
+
+    /**
+     * Check for new reports and trigger notifications (for reports page)
+     * @param {Array} currentReports - Current list of reports
+     */
+    function checkForNewReportsInReportsPage(currentReports) {
+      if (!currentReports || currentReports.length === 0) return;
+      
+      var currentReportIds = new Set();
+      var newReports = [];
+      
+      currentReports.forEach(function(report) {
+        if (report.id) {
+          currentReportIds.add(report.id);
+          if (!previousReportIds.has(report.id)) {
+            newReports.push(report);
+          }
+        }
+      });
+      
+      // If there are new reports, play sound
+      if (newReports.length > 0) {
+        playNotificationSoundReportsPage();
+      }
+      
+      // Update previous report IDs for next check
+      previousReportIds = currentReportIds;
     }
 
     function renderReports() {
