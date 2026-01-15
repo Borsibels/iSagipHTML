@@ -35,7 +35,7 @@
           <div class="filters" style="align-items:end;">
             <label style="flex:1;">
               <span>Search Requests</span>
-              <input id="pending-search" class="input" type="search" placeholder="Search by username, name, or email" />
+              <input id="pending-search" class="input" type="search" placeholder="Search by name or email" />
             </label>
             <label>
               <span>Sort By</span>
@@ -69,7 +69,7 @@
           <div class="filters" style="align-items:end;">
             <label style="flex:1;">
               <span>Search Residents</span>
-              <input id="approved-search" class="input" type="search" placeholder="Search by username, name, or email" />
+              <input id="approved-search" class="input" type="search" placeholder="Search by name or email" />
             </label>
             <label>
               <span>Status Filter</span>
@@ -83,7 +83,6 @@
 
           <div class="table res-table" style="margin-top:8px;">
             <div class="t-head t-row">
-              <div>Username</div>
               <div>Name</div>
               <div>Email</div>
               <div>Contact</div>
@@ -113,10 +112,6 @@
               <!-- Personal Information -->
               <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Personal Information</h4>
               <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
-                <label>
-                  <span>Username</span>
-                  <input id="review-username" class="input" readonly />
-                </label>
                 <label>
                   <span>Email</span>
                   <input id="review-email" class="input" readonly />
@@ -263,10 +258,6 @@
           <!-- Personal Information -->
           <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Personal Information</h4>
           <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
-            <label>
-              <span>Username</span>
-              <input id="edit-username" class="input" readonly />
-            </label>
             <label>
               <span>Email</span>
               <input id="edit-email" class="input" />
@@ -423,6 +414,16 @@
       window.dispatchEvent(new Event('firebaseReady'));
     </script>
     
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
+    <!-- Core modules (load in order) -->
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/navigation.js"></script>
+    <!-- Page-specific modules -->
+    <script src="assets/js/resident-management.js"></script>
+    <!-- Legacy code (will be removed after cleanup) -->
     <script src="assets/js/script.js"></script>
   </body>
   </html>

@@ -9,9 +9,9 @@
   // Initialize EmailJS (you'll need to set your public key)
   // Get your public key from https://dashboard.emailjs.com/admin/integration
   // For now, we'll use a placeholder - you need to configure this
-  const EMAILJS_PUBLIC_KEY = 'YOUR_EMAILJS_PUBLIC_KEY'; // Replace with your EmailJS public key
-  const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; // Replace with your EmailJS service ID
-  const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID'; // Replace with your EmailJS template ID
+  const EMAILJS_PUBLIC_KEY = 'HdfCtAM1oRBEUuyy9'; // Replace with your EmailJS public key
+  const EMAILJS_SERVICE_ID = 'service_c04v2hd'; // Replace with your EmailJS service ID
+  const EMAILJS_TEMPLATE_ID = 'template_36nko5r'; // Replace with your EmailJS template ID
 
   // Initialize EmailJS if public key is set
   if (EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY' && typeof emailjs !== 'undefined') {
@@ -19,37 +19,18 @@
   }
 
   let parsedData = [];
-  let currentMode = 'csv';
+  let currentMode = 'manual';
 
   // ========================================
-  // MODE TOGGLE
+  // MODE SETUP (MANUAL ONLY)
   // ========================================
-  (function setupModeToggle() {
-    const csvBtn = document.getElementById('mode-csv');
-    const manualBtn = document.getElementById('mode-manual');
-    const csvSection = document.getElementById('csv-section');
+  (function setupMode() {
     const manualSection = document.getElementById('manual-section');
+    if (!manualSection) return;
 
-    if (!csvBtn || !manualBtn) return;
-
-    function switchMode(mode) {
-      currentMode = mode;
-      if (mode === 'csv') {
-        csvBtn.classList.add('active');
-        manualBtn.classList.remove('active');
-        csvSection.style.display = 'block';
-        manualSection.style.display = 'none';
-      } else {
-        csvBtn.classList.remove('active');
-        manualBtn.classList.add('active');
-        csvSection.style.display = 'none';
-        manualSection.style.display = 'block';
-      }
-      parsedData = [];
-    }
-
-    csvBtn.addEventListener('click', () => switchMode('csv'));
-    manualBtn.addEventListener('click', () => switchMode('manual'));
+    currentMode = 'manual';
+    manualSection.style.display = 'block';
+    parsedData = [];
   })();
 
   // ========================================
@@ -218,8 +199,16 @@
           <input type="email" class="input entry-email" placeholder="email@example.com" required />
         </label>
         <label>
-          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Full Name *</span>
-          <input type="text" class="input entry-name" placeholder="John Doe" required />
+          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Last Name *</span>
+          <input type="text" class="input entry-last-name" placeholder="Dela Cruz" required />
+        </label>
+        <label>
+          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">First Name *</span>
+          <input type="text" class="input entry-first-name" placeholder="Juan" required />
+        </label>
+        <label>
+          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Middle Name</span>
+          <input type="text" class="input entry-middle-name" placeholder="Santos" />
         </label>
         <label>
           <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Age *</span>
@@ -279,15 +268,24 @@
 
     rows.forEach(row => {
       const email = row.querySelector('.entry-email')?.value.trim();
-      const fullName = row.querySelector('.entry-name')?.value.trim();
+      const lastName = row.querySelector('.entry-last-name')?.value.trim();
+      const firstName = row.querySelector('.entry-first-name')?.value.trim();
+      const middleName = row.querySelector('.entry-middle-name')?.value.trim();
       const age = parseInt(row.querySelector('.entry-age')?.value);
       const role = row.querySelector('.entry-role')?.value;
       const responderType = row.querySelector('.entry-responder-type')?.value || 'Fire';
 
-      if (email && fullName && age && age > 0 && role) {
+      const fullName = (lastName && firstName) 
+        ? `${lastName}, ${firstName}${middleName ? ' ' + middleName : ''}` 
+        : '';
+
+      if (email && lastName && firstName && age && age > 0 && role) {
         entries.push({
           email: email.toLowerCase(),
           fullName: fullName,
+          lastName: lastName,
+          firstName: firstName,
+          middleName: middleName || '',
           age: age,
           role: role,
           responderType: role === 'responder' ? responderType : null
@@ -340,8 +338,8 @@
         if (!entry.email || !isValidEmail(entry.email)) {
           validationErrors.push(`Row ${index + 1}: Invalid email address`);
         }
-        if (!entry.fullName || entry.fullName.length < 2) {
-          validationErrors.push(`Row ${index + 1}: Full name is required`);
+        if (!entry.lastName || !entry.firstName) {
+          validationErrors.push(`Row ${index + 1}: First and last name are required`);
         }
         if (!entry.age || entry.age < 1 || entry.age > 120) {
           validationErrors.push(`Row ${index + 1}: Age must be between 1 and 120`);
@@ -494,8 +492,8 @@
    */
   async function sendCredentialsEmail(email, fullName, password, role) {
     // Check if EmailJS is configured
-    if (EMAILJS_PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY' || typeof emailjs === 'undefined') {
-      console.warn('EmailJS is not configured. Email will not be sent.');
+    if (typeof emailjs === 'undefined') {
+      console.warn('EmailJS is not available on this page. Email will not be sent.');
       // Log the credentials to console for manual distribution
       console.log(`=== CREDENTIALS FOR ${email.toUpperCase()} ===`);
       console.log(`Name: ${fullName}`);

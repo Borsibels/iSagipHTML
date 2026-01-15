@@ -1,0 +1,1026 @@
+/**
+ * Reports Module
+ * Handles reports page functionality, realtime database feed, report management
+ */
+
+(function() {
+  'use strict';
+
+  /**
+   * Collect responder names from various possible fields on a raw object.
+   * Shared helper function for building consistent responder lists.
+   * @param {Object} raw
+   * @returns {string[]} Unique, trimmed responder names
+   */
+  function collectResponders(raw) {
+    raw = raw || {};
+    var responders = [];
+    function add(value) {
+      if (!value) return;
+      if (Array.isArray(value)) {
+        value.forEach(add);
+        return;
+      }
+      if (typeof value === 'object') {
+        // If it's a plain object (not an array), skip to avoid "[object Object]" strings
+        // Responder objects should be normalized elsewhere.
+        return;
+      }
+      var str = String(value).trim();
+      if (!str) return;
+      var parts = str.split(',').map(function(name){ return name.trim(); });
+      parts.forEach(function(name){
+        if (name && !responders.includes(name)) {
+          responders.push(name);
+        }
+      });
+    }
+
+    var assignment = raw.assignment || {};
+    add(assignment.responders);
+    add(assignment.responder);
+    add(assignment.secondaryResponder);
+    add(raw.responders);
+    add(raw.responder);
+    add(raw.responderName);
+    add(raw.assignedResponderName);
+    add(raw.assignedResponder);
+    add(raw.assignedResponders);
+    add(raw.responderList);
+    add(raw.secondaryResponder);
+    add(raw.otherResponder);
+    add(raw.crewMembers);
+    return responders;
+  }
+
+  // ========================================
+  // REPORTS PAGE - REALTIME DATABASE FEED
+  // ========================================
+  (function initializeRealtimeReportsPage() {
+    const reportsTable = document.getElementById('reports-rows');
+    if (!reportsTable) return;
+
+    const stats = {
+      total: document.getElementById('r-total'),
+      resolved: document.getElementById('r-resolved'),
+      active: document.getElementById('r-active'),
+      average: document.getElementById('r-avg'),
+    };
+
+    const detailsModal = document.getElementById('modal-details');
+    const detailsContent = document.getElementById('details-content');
+    const manageModal = document.getElementById('modal-manage-report');
+    const manageForm = document.getElementById('manage-report-form');
+    const manageReportIdInput = document.getElementById('manage-report-id');
+    const manageStatusSelect = document.getElementById('manage-status');
+    const manageVehicleInput = document.getElementById('manage-vehicle');
+    const manageNotesInput = document.getElementById('manage-notes');
+    const manageVehicleSelect = document.getElementById('manage-vehicle');
+    let ambulancesMap = {};
+
+    const REALTIME_DB_URL = 'https://isagip-752d1-default-rtdb.asia-southeast1.firebasedatabase.app';
+    let realtimeDb = null;
+    let databaseModule = null;
+    let reports = [];
+    let rawReports = {};
+    let previousReportIds = new Set(); // Track previous reports to detect new ones
+    let groupedReports = []; // Store grouped reports for duplicate handling
+
+    init();
+
+    async function init() {
+      try {
+        await ensureFirebaseReady();
+        databaseModule = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js");
+        realtimeDb = databaseModule.getDatabase(window.iSagipApp, REALTIME_DB_URL);
+
+        const { ref, onValue } = databaseModule;
+        const reportsRef = ref(realtimeDb, 'reports');
+        const ambulancesRef = ref(realtimeDb, 'ambulances');
+
+        onValue(
+          ambulancesRef,
+          (snapshot) => {
+            ambulancesMap = snapshot.val() || {};
+            updateVehicleOptions();
+          },
+          (error) => {
+            console.error('Failed to load ambulances:', error);
+          }
+        );
+        onValue(
+          reportsRef,
+          (snapshot) => {
+            const value = snapshot.val() || {};
+            rawReports = value;
+            const previousReportsCount = reports.length;
+            reports = Object.entries(value)
+              .map(([id, data]) => mapReport(id, data))
+              .sort((a, b) => (b.rawTimestamp || 0) - (a.rawTimestamp || 0));
+
+            // Check for new reports and play sound notification
+            if (reports.length > previousReportsCount || previousReportsCount === 0) {
+              // Only check for new reports if we had previous reports (skip initial load)
+              if (previousReportsCount > 0) {
+                checkForNewReportsInReportsPage(reports);
+              } else {
+                // Initialize previous report IDs on first load
+                reports.forEach(function(report) {
+                  if (report.id) {
+                    previousReportIds.add(report.id);
+                  }
+                });
+              }
+            }
+
+            renderReports();
+            updateStats();
+          },
+          (error) => {
+            console.error('Realtime reports error:', error);
+            reportsTable.innerHTML = `
+              <div class="t-row">
+                <div style="grid-column:1/-1;text-align:center;padding:1.5rem;color:#ef4444;">
+                  Unable to load reports. Please refresh the page.
+                </div>
+              </div>`;
+          }
+        );
+      } catch (error) {
+        console.error('Failed to initialize reports page:', error);
+      }
+    }
+
+    /**
+     * Play notification sound when a new report is received (for reports page)
+     */
+    function playNotificationSoundReportsPage() {
+      try {
+        var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        var oscillator = audioContext.createOscillator();
+        var gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Configure sound (emergency notification tone)
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.3);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.4);
+        
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.39);
+        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+      } catch (error) {
+        console.log('Could not play notification sound:', error);
+      }
+    }
+
+    /**
+     * Check for new reports and trigger notifications (for reports page)
+     * @param {Array} currentReports - Current list of reports
+     */
+    function checkForNewReportsInReportsPage(currentReports) {
+      if (!currentReports || currentReports.length === 0) return;
+      
+      var currentReportIds = new Set();
+      var newReports = [];
+      
+      currentReports.forEach(function(report) {
+        if (report.id) {
+          currentReportIds.add(report.id);
+          if (!previousReportIds.has(report.id)) {
+            newReports.push(report);
+          }
+        }
+      });
+      
+      // If there are new reports, play sound
+      if (newReports.length > 0) {
+        playNotificationSoundReportsPage();
+      }
+      
+      // Update previous report IDs for next check
+      previousReportIds = currentReportIds;
+    }
+
+    /**
+     * Calculate distance between two GPS coordinates (Haversine formula)
+     * Returns distance in meters
+     */
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // Earth's radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    /**
+     * Calculate Levenshtein distance between two strings
+     */
+    function levenshteinDistance(str1, str2) {
+      const matrix = [];
+      for (let i = 0; i <= str2.length; i++) {
+        matrix[i] = [i];
+      }
+      for (let j = 0; j <= str1.length; j++) {
+        matrix[0][j] = j;
+      }
+      for (let i = 1; i <= str2.length; i++) {
+        for (let j = 1; j <= str1.length; j++) {
+          if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j - 1] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j] + 1
+            );
+          }
+        }
+      }
+      return matrix[str2.length][str1.length];
+    }
+
+    /**
+     * Calculate string similarity (simple Levenshtein-based)
+     * Returns value between 0 and 1
+     */
+    function calculateStringSimilarity(str1, str2) {
+      const longer = str1.length > str2.length ? str1 : str2;
+      const shorter = str1.length > str2.length ? str2 : str1;
+      if (longer.length === 0) return 1.0;
+      
+      const distance = levenshteinDistance(longer, shorter);
+      return (longer.length - distance) / longer.length;
+    }
+
+    /**
+     * Check if two reports are duplicates
+     */
+    function areReportsDuplicate(report1, report2) {
+      // Must be same type
+      if (report1.type !== report2.type) return false;
+      
+      // Check time window (within 10 minutes)
+      const timeDiff = Math.abs((report1.rawTimestamp || 0) - (report2.rawTimestamp || 0));
+      const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
+      if (timeDiff > tenMinutes) return false;
+      
+      // Check location proximity (within 100 meters)
+      if (report1.latitude && report1.longitude && report2.latitude && report2.longitude) {
+        const distance = calculateDistance(
+          report1.latitude, report1.longitude,
+          report2.latitude, report2.longitude
+        );
+        if (distance > 100) return false; // More than 100 meters apart
+      } else {
+        // If no GPS, compare street address (fuzzy match)
+        const street1 = (report1.street || '').toLowerCase().trim();
+        const street2 = (report2.street || '').toLowerCase().trim();
+        if (street1 && street2 && street1 !== street2) {
+          // Simple similarity check
+          const similarity = calculateStringSimilarity(street1, street2);
+          if (similarity < 0.7) return false; // Less than 70% similar
+        }
+      }
+      
+      return true;
+    }
+
+    /**
+     * Group duplicate reports together
+     * Reports are considered duplicates if they:
+     * - Have the same type
+     * - Are within 100 meters of each other
+     * - Were created within 10 minutes of each other
+     */
+    function groupDuplicateReports(reports) {
+      const grouped = [];
+      const processed = new Set();
+      
+      reports.forEach((report, index) => {
+        if (processed.has(index)) return;
+        
+        const group = {
+          primary: report,
+          duplicates: [],
+          count: 1,
+          reporters: [report.reportedBy || 'Unknown']
+        };
+        
+        // Find similar reports
+        reports.forEach((otherReport, otherIndex) => {
+          if (index === otherIndex || processed.has(otherIndex)) return;
+          
+          if (areReportsDuplicate(report, otherReport)) {
+            group.duplicates.push(otherReport);
+            group.count++;
+            if (otherReport.reportedBy && !group.reporters.includes(otherReport.reportedBy)) {
+              group.reporters.push(otherReport.reportedBy);
+            }
+            processed.add(otherIndex);
+          }
+        });
+        
+        processed.add(index);
+        grouped.push(group);
+      });
+      
+      return grouped;
+    }
+
+    function renderReports() {
+      if (!reports.length) {
+        reportsTable.innerHTML = `
+          <div class="t-row">
+            <div style="grid-column:1/-1;text-align:center;padding:1.5rem;color:var(--muted);">
+              No reports yet.
+            </div>
+          </div>`;
+        groupedReports = [];
+        return;
+      }
+
+      // Group duplicate reports
+      groupedReports = groupDuplicateReports(reports);
+
+      const currentUserRole = localStorage.getItem('iSagip_userRole') || '';
+      const canManage = ['admin', 'system_admin', 'barangay_staff', 'responder'].includes(currentUserRole);
+      const canDelete = ['admin', 'system_admin', 'barangay_staff'].includes(currentUserRole);
+
+      reportsTable.innerHTML = groupedReports
+        .map((group, groupIndex) => {
+          const report = group.primary; // Use primary report for display
+          const isDuplicate = group.count > 1;
+          
+          const photoCell = report.photo && report.photo.trim() !== ''
+            ? `<a href="${escapeHtml(report.photo)}" target="_blank" rel="noopener" title="Click to view full size" style="display:inline-block;width:80px;height:60px;border-radius:6px;overflow:hidden;border:1px solid var(--outline);background:#f3f6fb;cursor:pointer;transition:transform 0.2s;">
+                <img src="${escapeHtml(report.photo)}" alt="Report photo" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);\'>Failed</div>'"/>
+              </a>`
+            : '<span style="color:var(--muted);font-size:12px;">N/A</span>';
+          
+          // Add duplicate badge if there are duplicates
+          const duplicateBadge = isDuplicate 
+            ? `<span class="badge badge-orange" style="margin-left:8px;background:#f97316;color:white;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;" title="${group.count} people reported this incident">${group.count}x</span>`
+            : '';
+          
+          const reportersList = isDuplicate && group.reporters.length > 1
+            ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">Reported by: ${group.reporters.join(', ')}</div>`
+            : '';
+          
+          const actionButtons = `
+            <div class="reports-actions">
+              <button class="btn btn-small btn-outline" data-action="view-report" data-id="${report.id}">
+                View
+              </button>
+              ${isDuplicate ? `<button class="btn btn-small btn-secondary" data-action="view-duplicates" data-group-index="${groupIndex}" title="View all ${group.count} reports" style="font-size:11px;padding:4px 8px;">View All (${group.count})</button>` : ''}
+              ${
+                canManage
+                  ? `<button class="btn btn-small btn-primary" data-action="manage-report" data-id="${report.id}">
+                      Manage
+                    </button>`
+                  : ''
+              }
+              ${
+                canDelete
+                  ? `<button class="btn btn-small btn-danger" data-action="delete-report" data-id="${report.id}">
+                      Delete
+                    </button>`
+                  : ''
+              }
+            </div>
+          `;
+
+          return `
+            <div class="t-row" data-report-id="${report.id}" ${isDuplicate ? 'data-has-duplicates="true"' : ''}>
+              <div title="${report.id}">${report.id}${duplicateBadge}</div>
+              <div>${escapeHtml(report.type)}</div>
+              <div>${escapeHtml(report.description)}${reportersList}</div>
+              <div>${formatStatusBadge(report.status)}</div>
+              <div>${escapeHtml(report.street)}</div>
+              <div>${escapeHtml(report.landmark)}</div>
+              <div>${report.latitude != null ? report.latitude.toFixed(6) : '—'}</div>
+              <div>${report.longitude != null ? report.longitude.toFixed(6) : '—'}</div>
+              <div>${photoCell}</div>
+              <div>${actionButtons}</div>
+              <div>${report.timestamp}</div>
+              <div>${report.responseTime || '—'}</div>
+              <div>${escapeHtml(report.reportedBy)}</div>
+              <div>${escapeHtml(report.closedBy || '—')}</div>
+              <div>${escapeHtml(report.lastUpdatedBy || '—')}</div>
+              <div>${report.lastUpdatedAt || '—'}</div>
+              <div>${escapeHtml(report.notes || '—')}</div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function updateStats() {
+      // Use grouped reports count for total (unique incidents)
+      const total = groupedReports.length > 0 ? groupedReports.length : reports.length;
+      const resolved = reports.filter((r) => r.status.toLowerCase() === 'resolved').length;
+      const active = total - resolved;
+
+      const responseValues = reports
+        .map((r) => r.responseMinutes)
+        .filter((value) => typeof value === 'number');
+
+      const average =
+        responseValues.length > 0
+          ? Math.round(responseValues.reduce((sum, value) => sum + value, 0) / responseValues.length)
+          : 0;
+
+      if (stats.total) stats.total.textContent = total;
+      if (stats.resolved) stats.resolved.textContent = resolved;
+      if (stats.active) stats.active.textContent = active;
+      if (stats.average) stats.average.textContent = responseValues.length ? `${average} min` : '0 min';
+    }
+
+    // Details photo fullscreen viewer
+    document.getElementById('view-details-photo-fullscreen')?.addEventListener('click', function() {
+      const fullscreenModal = document.getElementById('details-photo-fullscreen-modal');
+      if (fullscreenModal) fullscreenModal.hidden = false;
+    });
+
+    document.getElementById('details-photo-fullscreen-modal')?.addEventListener('click', function(event){
+      if (event.target.matches('[data-close]') || event.target === this) {
+        this.hidden = true;
+      }
+    });
+
+    reportsTable.addEventListener('click', function (event) {
+      const viewButton = event.target.closest('[data-action="view-report"]');
+      const manageButton = event.target.closest('[data-action="manage-report"]');
+      const deleteButton = event.target.closest('[data-action="delete-report"]');
+      const viewDuplicatesButton = event.target.closest('[data-action="view-duplicates"]');
+
+      if (viewButton) {
+        const reportId = viewButton.getAttribute('data-id');
+        const report = reports.find((item) => item.id === reportId);
+        if (report) {
+          showReportDetails(report);
+        }
+        return;
+      }
+
+      if (viewDuplicatesButton) {
+        const groupIndex = parseInt(viewDuplicatesButton.getAttribute('data-group-index'));
+        if (groupedReports[groupIndex]) {
+          showDuplicatesModal(groupedReports[groupIndex]);
+        }
+        return;
+      }
+
+      if (manageButton) {
+        const reportId = manageButton.getAttribute('data-id');
+        const raw = rawReports[reportId];
+        if (raw) {
+          openManageModal(reportId, raw);
+        }
+        return;
+      }
+
+      if (deleteButton) {
+        const reportId = deleteButton.getAttribute('data-id');
+        if (!reportId) return;
+        const confirmMsg = 'Delete this report permanently? This cannot be undone.';
+        if (!confirm(confirmMsg)) return;
+        if (!databaseModule || !realtimeDb) {
+          alert('Database not ready. Please refresh and try again.');
+          return;
+        }
+        (async function(){
+          try {
+            const { ref, remove } = databaseModule;
+            await remove(ref(realtimeDb, `reports/${reportId}`));
+            alert('Report deleted.');
+          } catch (err) {
+            console.error('Failed to delete report:', err);
+            alert('Failed to delete report. Please try again.');
+          }
+        })();
+      }
+    });
+
+    /**
+     * Show modal with all duplicate reports
+     * @param {Object} group - Group object containing primary and duplicate reports
+     */
+    function showDuplicatesModal(group) {
+      // Create modal HTML
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+      modal.innerHTML = `
+        <div class="modal-content" style="background:white;border-radius:8px;max-width:900px;max-height:80vh;overflow-y:auto;width:90%;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+          <div class="modal-header" style="padding:20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <h2 style="margin:0;font-size:20px;font-weight:600;">Duplicate Reports (${group.count} total)</h2>
+            <button class="modal-close" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">&times;</button>
+          </div>
+          <div class="modal-body" style="padding:20px;">
+            <p style="margin-bottom:16px;color:#6b7280;font-size:14px;">
+              Multiple users reported the same incident. All reports are listed below:
+            </p>
+            <div class="table" style="width:100%;">
+              <div class="t-head t-row" style="display:grid;grid-template-columns:150px 1fr 150px 120px 200px;gap:12px;padding:12px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-weight:600;font-size:13px;">
+                <div>Report ID</div>
+                <div>Reported By</div>
+                <div>Time</div>
+                <div>Status</div>
+                <div>Actions</div>
+              </div>
+              <div class="t-body">
+                ${[group.primary, ...group.duplicates].map(report => `
+                  <div class="t-row" style="display:grid;grid-template-columns:150px 1fr 150px 120px 200px;gap:12px;padding:12px;border-bottom:1px solid #e5e7eb;align-items:center;">
+                    <div style="font-family:monospace;font-size:12px;">${escapeHtml(report.id)}</div>
+                    <div>${escapeHtml(report.reportedBy || 'Unknown')}</div>
+                    <div style="font-size:12px;color:#6b7280;">${escapeHtml(report.timestamp)}</div>
+                    <div>${formatStatusBadge(report.status)}</div>
+                    <div style="display:flex;gap:8px;">
+                      <button class="btn btn-small btn-outline" data-action="view-report-from-modal" data-id="${report.id}" style="font-size:11px;padding:4px 8px;">View</button>
+                      <button class="btn btn-small btn-primary" data-action="manage-report-from-modal" data-id="${report.id}" style="font-size:11px;padding:4px 8px;">Manage</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Close modal handlers
+      modal.querySelector('.modal-close').addEventListener('click', () => {
+        document.body.removeChild(modal);
+      });
+      
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          document.body.removeChild(modal);
+        }
+      });
+
+      // Handle actions from modal
+      modal.addEventListener('click', function(e) {
+        const viewBtn = e.target.closest('[data-action="view-report-from-modal"]');
+        const manageBtn = e.target.closest('[data-action="manage-report-from-modal"]');
+        
+        if (viewBtn) {
+          const reportId = viewBtn.getAttribute('data-id');
+          const report = reports.find((item) => item.id === reportId);
+          if (report) {
+            document.body.removeChild(modal);
+            showReportDetails(report);
+          }
+        } else if (manageBtn) {
+          const reportId = manageBtn.getAttribute('data-id');
+          const raw = rawReports[reportId];
+          if (raw) {
+            document.body.removeChild(modal);
+            openManageModal(reportId, raw);
+          }
+        }
+      });
+    }
+
+    function showReportDetails(report) {
+      if (!detailsModal || !detailsContent) return;
+
+      // Populate report information fields
+      const reportIdEl = document.getElementById('details-report-id');
+      const statusEl = document.getElementById('details-status');
+      const typeEl = document.getElementById('details-type');
+      const descriptionEl = document.getElementById('details-description');
+      const streetEl = document.getElementById('details-street');
+      const landmarkEl = document.getElementById('details-landmark');
+      const locationEl = document.getElementById('details-location');
+      const reportedByEl = document.getElementById('details-reported-by');
+      const timestampEl = document.getElementById('details-timestamp');
+      const responseTimeEl = document.getElementById('details-response-time');
+      const closedByEl = document.getElementById('details-closed-by');
+      const updatedByEl = document.getElementById('details-updated-by');
+      const updatedAtEl = document.getElementById('details-updated-at');
+      const notesEl = document.getElementById('details-notes');
+
+      if (reportIdEl) reportIdEl.value = report.id || 'N/A';
+      if (statusEl) statusEl.value = formatStatusLabel(report.status) || 'N/A';
+      if (typeEl) typeEl.value = escapeHtml(report.type) || 'N/A';
+      if (descriptionEl) descriptionEl.value = escapeHtml(report.description) || 'N/A';
+      if (streetEl) streetEl.value = escapeHtml(report.street) || 'N/A';
+      if (landmarkEl) landmarkEl.value = escapeHtml(report.landmark) || 'N/A';
+      
+      const locationStr = (report.latitude != null && report.longitude != null)
+        ? `${report.latitude.toFixed(6)}, ${report.longitude.toFixed(6)}`
+        : 'N/A';
+      if (locationEl) locationEl.value = locationStr;
+      
+      if (reportedByEl) reportedByEl.value = escapeHtml(report.reportedBy) || 'N/A';
+      if (timestampEl) timestampEl.value = report.timestamp || 'N/A';
+      if (responseTimeEl) responseTimeEl.value = report.responseTime || '—';
+      if (closedByEl) closedByEl.value = escapeHtml(report.closedBy || '—');
+      if (updatedByEl) updatedByEl.value = escapeHtml(report.lastUpdatedBy || '—');
+      if (updatedAtEl) updatedAtEl.value = report.lastUpdatedAt || '—';
+      if (notesEl) notesEl.value = escapeHtml(report.notes || '—');
+
+      // Load and display report photo
+      const photoUrl = report.photo || '';
+      const photoPreview = document.getElementById('details-photo-preview');
+      const photoPlaceholder = document.getElementById('details-photo-placeholder');
+      const photoFullscreenImg = document.getElementById('details-photo-fullscreen-img');
+      const downloadPhotoLink = document.getElementById('download-details-photo');
+      const viewFullscreenBtn = document.getElementById('view-details-photo-fullscreen');
+
+      if (photoUrl && photoUrl.trim() !== '') {
+        if (photoPreview) {
+          photoPreview.src = photoUrl;
+          photoPreview.style.display = 'block';
+          photoPreview.onerror = function() {
+            this.style.display = 'none';
+            if (photoPlaceholder) photoPlaceholder.style.display = 'block';
+            if (viewFullscreenBtn) viewFullscreenBtn.style.display = 'none';
+            if (downloadPhotoLink) downloadPhotoLink.style.display = 'none';
+          };
+        }
+        if (photoPlaceholder) photoPlaceholder.style.display = 'none';
+        if (photoFullscreenImg) photoFullscreenImg.src = photoUrl;
+        if (viewFullscreenBtn) viewFullscreenBtn.style.display = 'flex';
+        if (downloadPhotoLink) {
+          downloadPhotoLink.href = photoUrl;
+          // Extract filename from URL or use default
+          const urlParts = photoUrl.split('/');
+          const filename = urlParts[urlParts.length - 1].split('?')[0] || 'report-photo.jpg';
+          downloadPhotoLink.download = filename;
+          downloadPhotoLink.style.display = 'flex';
+        }
+      } else {
+        if (photoPreview) photoPreview.style.display = 'none';
+        if (photoPlaceholder) photoPlaceholder.style.display = 'block';
+        if (photoFullscreenImg) photoFullscreenImg.src = '';
+        if (viewFullscreenBtn) viewFullscreenBtn.style.display = 'none';
+        if (downloadPhotoLink) {
+          downloadPhotoLink.style.display = 'none';
+          downloadPhotoLink.href = '#';
+        }
+      }
+
+      detailsModal.hidden = false;
+    }
+
+    function toggleVehicleDropdown() {
+      if (!manageVehicleSelect || !manageStatusSelect) return;
+      const currentStatus = (manageStatusSelect.value || '').toLowerCase();
+      const isReceived = currentStatus === 'received';
+      const isRelayed = currentStatus === 'relayed';
+      const isResolved = currentStatus === 'resolved';
+      const shouldDisable = isReceived || isRelayed || isResolved;
+      
+      manageVehicleSelect.disabled = shouldDisable;
+      if (shouldDisable) {
+        manageVehicleSelect.value = '';
+        manageVehicleSelect.style.opacity = '0.6';
+        manageVehicleSelect.style.cursor = 'not-allowed';
+      } else {
+        manageVehicleSelect.style.opacity = '1';
+        manageVehicleSelect.style.cursor = 'pointer';
+      }
+    }
+
+    function openManageModal(reportId, raw) {
+      if (!manageModal || !manageForm) return;
+      manageReportIdInput.value = reportId;
+      manageStatusSelect.value = (raw.status || 'received').toLowerCase();
+      updateVehicleOptions(raw.assignedVehicle || '');
+      manageNotesInput.value = '';
+      toggleVehicleDropdown(); // Disable vehicle dropdown if status is "received"
+      manageModal.hidden = false;
+    }
+
+    function updateVehicleOptions(selectedValue) {
+      if (!manageVehicleSelect) return;
+      const hasExplicitSelection = arguments.length > 0;
+      const currentValue = hasExplicitSelection ? (selectedValue || '') : (manageVehicleSelect.value || '');
+      manageVehicleSelect.innerHTML = '<option value="">Select an ambulance</option>';
+      Object.keys(ambulancesMap).forEach(function(key) {
+        const ambulance = ambulancesMap[key] || {};
+        const option = document.createElement('option');
+        option.value = key;
+        const statusLabel = ambulance.status ? ` - ${formatStatusLabel(ambulance.status)}` : '';
+        option.textContent = ambulance.name ? `${ambulance.name} (${key})${statusLabel}` : `${key}${statusLabel}`;
+        // Prevent selecting ambulances that are not available
+        const isAvailable = (ambulance.status || '').toUpperCase() === 'AVAILABLE';
+        if (!isAvailable) {
+          option.disabled = true;
+          option.title = 'Ambulance is not available';
+        }
+        if (currentValue && currentValue === key) {
+          option.selected = true;
+        }
+        manageVehicleSelect.appendChild(option);
+      });
+    }
+
+    function sanitizeAmbulanceKey(value) {
+      if (value === null || value === undefined) return '';
+      return value.toString().trim();
+    }
+
+    function buildAmbulanceAssignmentPayload(reportId, raw, status) {
+      raw = raw || {};
+      return {
+        id: reportId,
+        type: raw.emergencyType || raw.type || 'General',
+        description: raw.description || raw.desc || 'No description provided',
+        address: raw.street || raw.location || 'N/A',
+        landmark: raw.landmark || '',
+        reporter: raw.userName || raw.reportedByName || raw.by || '',
+        responder: raw.assignedResponderName || raw.assignedResponder || raw.responder || '',
+        responders: collectResponders(raw),
+        status: formatStatusLabel(status),
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    async function updateAmbulanceRecordForReport(ambulanceId, updates) {
+      const key = sanitizeAmbulanceKey(ambulanceId);
+      if (!key || !databaseModule || !realtimeDb) return;
+      const { ref, update } = databaseModule;
+      await update(ref(realtimeDb, `ambulances/${key}`), updates);
+    }
+
+    async function assignAmbulanceToReport(ambulanceId, payload) {
+      if (!ambulanceId || !payload) return;
+      const actor = localStorage.getItem('iSagip_userUID') || 'staff';
+      await updateAmbulanceRecordForReport(ambulanceId, {
+        status: 'IN-USE',
+        assignment: payload,
+        assignmentId: payload.id || null,
+        secondaryResponder: payload.responder || null,
+        lastUpdated: Date.now(),
+        lastUpdatedBy: actor
+      });
+    }
+
+    async function releaseAmbulanceFromReport(ambulanceId) {
+      if (!ambulanceId) return;
+      const actor = localStorage.getItem('iSagip_userUID') || 'staff';
+      await updateAmbulanceRecordForReport(ambulanceId, {
+        status: 'AVAILABLE',
+        assignment: null,
+        assignmentId: null,
+        secondaryResponder: null,
+        lastUpdated: Date.now(),
+        lastUpdatedBy: actor
+      });
+    }
+
+    async function syncAmbulancesForReport(options) {
+      if (!options) return;
+      const previousVehicle = sanitizeAmbulanceKey(options.previousVehicle);
+      const nextVehicle = sanitizeAmbulanceKey(options.nextVehicle);
+      const status = (options.status || '').toLowerCase();
+      const resolved = status === 'resolved';
+      const relayed = status === 'relayed';
+      const tasks = [];
+
+      if (previousVehicle && (resolved || relayed || !nextVehicle || previousVehicle !== nextVehicle)) {
+        tasks.push(releaseAmbulanceFromReport(previousVehicle));
+      }
+
+      if (!resolved && !relayed && nextVehicle) {
+        const assignmentPayload = buildAmbulanceAssignmentPayload(
+          options.reportId,
+          options.reportData,
+          options.status
+        );
+        tasks.push(assignAmbulanceToReport(nextVehicle, assignmentPayload));
+      } else if ((resolved || relayed) && nextVehicle && !previousVehicle) {
+        tasks.push(releaseAmbulanceFromReport(nextVehicle));
+      }
+
+      if (tasks.length) {
+        try {
+          await Promise.all(tasks);
+        } catch (error) {
+          console.error('Failed to synchronize ambulance assignment:', error);
+        }
+      }
+    }
+
+    // Add event listener to status dropdown to toggle vehicle dropdown
+    manageStatusSelect?.addEventListener('change', function() {
+      toggleVehicleDropdown();
+    });
+
+    manageModal?.addEventListener('click', function(event){
+      if (event.target.matches('[data-close]')) {
+        manageModal.hidden = true;
+      }
+    });
+
+    manageForm?.addEventListener('submit', async function(event){
+      event.preventDefault();
+      if (!databaseModule || !realtimeDb) return;
+
+      const reportId = manageReportIdInput.value;
+      const raw = rawReports[reportId];
+      if (!reportId || !raw) return;
+
+      const { ref, update, push, set } = databaseModule;
+      const now = Date.now();
+      const actor = localStorage.getItem('iSagip_userUID') || 'staff';
+      const newStatus = manageStatusSelect.value;
+      // Prevent vehicle assignment if status is "received", "relayed", or "resolved"
+      const normalizedStatus = newStatus.toLowerCase();
+      const assignedVehicle = (normalizedStatus === 'received' || normalizedStatus === 'relayed' || normalizedStatus === 'resolved') ? '' : manageVehicleInput.value.trim();
+      const note = manageNotesInput.value.trim();
+
+      const actorName = await resolveUserDisplayName(actor);
+
+      const updates = {
+        status: newStatus,
+        assignedVehicle: assignedVehicle || null,
+        lastUpdatedAt: now,
+        lastUpdatedBy: actorName,
+        lastUpdatedByUid: actor
+      };
+
+      const wasResolved = (raw.status || '').toLowerCase() === 'resolved';
+      const nowResolved = newStatus === 'resolved';
+
+      if (nowResolved && !wasResolved) {
+        updates.closedBy = actorName;
+        updates.closedByUid = actor;
+        updates.closedAt = now;
+      } else if (!nowResolved && wasResolved) {
+        updates.closedBy = null;
+        updates.closedByUid = null;
+        updates.closedAt = null;
+      }
+
+      if (note) {
+        updates.notes = note;
+      }
+
+      try {
+        await update(ref(realtimeDb, `reports/${reportId}`), updates);
+
+        const historyRef = push(ref(realtimeDb, `reports/${reportId}/history`));
+        const changeDetails = [];
+        if ((raw.status || 'received').toLowerCase() !== newStatus) {
+          changeDetails.push(`Status: ${formatStatusLabel(raw.status)} → ${formatStatusLabel(newStatus)}`);
+        }
+        if ((raw.assignedVehicle || '') !== assignedVehicle) {
+          changeDetails.push(`Vehicle: "${raw.assignedVehicle || 'None'}" → "${assignedVehicle || 'None'}"`);
+        }
+        if (note) {
+          changeDetails.push(`Note: ${note}`);
+        }
+
+        await set(historyRef, {
+          timestamp: now,
+          actorUid: actor,
+          actorName,
+          action: 'update',
+          details: changeDetails.join(' | ') || 'Report updated'
+        });
+
+        await syncAmbulancesForReport({
+          previousVehicle: raw.assignedVehicle,
+          nextVehicle: assignedVehicle,
+          status: newStatus,
+          reportId,
+          reportData: { ...raw, ...updates }
+        });
+
+        manageModal.hidden = true;
+        manageNotesInput.value = '';
+      } catch (error) {
+        console.error('Error updating report:', error);
+        alert('Failed to update report. Please try again.');
+      }
+    });
+
+    function mapReport(id, raw) {
+      const timestamp = Number(raw.timestamp) || Date.now();
+      const closedAt = Number(raw.closedAt) || null;
+
+      const responseMinutes =
+        typeof raw.responseTimeMinutes === 'number'
+          ? raw.responseTimeMinutes
+          : closedAt
+          ? Math.round((closedAt - timestamp) / 60000)
+          : null;
+
+      return {
+        id,
+        type: raw.emergencyType || raw.type || 'General',
+        description: raw.description || raw.desc || 'No description provided',
+        status: raw.status || 'Received',
+        street: raw.street || 'N/A',
+        landmark: raw.landmark || 'N/A',
+        latitude: (function(){ const v = parseFloat(raw.latitude ?? raw.lat); return isFinite(v) ? v : null; })(),
+        longitude: (function(){ const v = parseFloat(raw.longitude ?? raw.lng); return isFinite(v) ? v : null; })(),
+        photo: raw.photoUri || raw.photoUrl || raw.photo || '',
+        reportedBy: raw.userName || raw.reportedByName || raw.by || 'Unknown',
+        notes: raw.residentNotes || raw.notes || '',
+        closedBy: raw.closedBy || raw.closedByName || '',
+        lastUpdatedBy: raw.lastUpdatedBy || raw.lastUpdatedByName || '',
+        timestamp: new Date(timestamp).toLocaleString(),
+        lastUpdatedAt: raw.lastUpdatedAt ? new Date(Number(raw.lastUpdatedAt)).toLocaleString() : '—',
+        responseTime: typeof responseMinutes === 'number' ? `${responseMinutes} min` : '—',
+        responseMinutes,
+        rawTimestamp: timestamp,
+      };
+    }
+
+    function formatStatusBadge(status) {
+      const normalized = (status || '').toLowerCase();
+      let color = '#3b82f6';
+      if (normalized === 'resolved') color = '#10b981';
+      else if (normalized === 'accepted' || normalized === 'responding' || normalized === 'relayed') color = '#f97316';
+      else if (normalized === 'emergency') color = '#ef4444';
+      return `<span class="status-badge" style="background: ${color}1a; color: ${color}; font-weight:600;">${formatStatusLabel(
+        status
+      )}</span>`;
+    }
+
+    async function resolveUserDisplayName(uid){
+      if (!uid) return 'Unknown';
+      try{
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+        const db = window.iSagipDb;
+        if (!db) return uid;
+        const adminDoc = await getDoc(doc(db, 'admin', uid));
+        if (adminDoc.exists()) {
+          return adminDoc.data().lastName || adminDoc.data().firstName || uid;
+        }
+        const staffDoc = await getDoc(doc(db, 'staff', uid));
+        if (staffDoc.exists()) {
+          return staffDoc.data().lastName || staffDoc.data().firstName || uid;
+        }
+        const residentDoc = await getDoc(doc(db, 'residents', uid));
+        if (residentDoc.exists()) {
+          return residentDoc.data().lastName || residentDoc.data().firstName || uid;
+        }
+      } catch (error){
+        console.error('Failed to resolve user name for UID', uid, error);
+      }
+      return uid;
+    }
+
+    function formatStatusLabel(status) {
+      if (!status) return 'Received';
+      return status.toString().replace(/[_-]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function ensureFirebaseReady() {
+      if (window.iSagipApp && window.iSagipDb) return Promise.resolve();
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 50;
+        const interval = setInterval(() => {
+          if (window.iSagipApp && window.iSagipDb) {
+            clearInterval(interval);
+            resolve();
+          } else if (attempts > maxAttempts) {
+            clearInterval(interval);
+            resolve();
+          }
+          attempts += 1;
+        }, 200);
+        window.addEventListener(
+          'firebaseReady',
+          () => {
+            clearInterval(interval);
+            resolve();
+          },
+          { once: true }
+        );
+      });
+    }
+  })();
+})();
