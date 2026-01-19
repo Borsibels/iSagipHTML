@@ -483,8 +483,7 @@
 
     /**
      * Approve a registration request
-     * Note: Account is already created in Firebase Auth from mobile app registration
-     * We just need to update the status and send approval email
+     * Creates Firebase Auth account only upon approval
      */
     async function approveRequest() {
       if (!currentReviewRequest || !db) return;
@@ -495,55 +494,27 @@
 
       try {
         const auth = window.iSagipAuth;
-        let userUid = currentReviewRequest.uid; // UID from mobile app registration
 
-        // If UID exists, account was already created in mobile app
-        // If not, try to get existing user or create new one (fallback for web registrations)
-        if (!userUid) {
-          try {
-            const { createUserWithEmailAndPassword, fetchSignInMethodsForEmail } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
-            
-            // Check if account already exists
-            const signInMethods = await fetchSignInMethodsForEmail(auth, currentReviewRequest.email);
-            
-            if (signInMethods.length > 0) {
-              // Account exists but UID wasn't in request - we can't get UID without password
-              // In this case, we'll need to use the email to find the user in Firestore
-              // or ask user to provide UID. For now, we'll throw a helpful error.
-              throw new Error('Account already exists but UID is missing from request. Please ensure mobile app includes UID when creating registration request.');
-            } else {
-              // Account doesn't exist, create it
-              const accountPassword = currentReviewRequest.password || 'TempPassword123!';
-              const userCredential = await createUserWithEmailAndPassword(
-                auth,
-                currentReviewRequest.email,
-                accountPassword
-              );
-              userUid = userCredential.user.uid;
-            }
-          } catch (createError) {
-            if (createError.code === 'auth/email-already-in-use') {
-              // Account exists but we don't have the UID
-              // Try to find user in Firestore by email, or use email as fallback
-              console.warn('Account already exists but UID not provided. Attempting to find user by email...');
-              
-              // Try to find existing resident by email in Firestore
-              const residentsRef = collection(db, 'residents');
-              const emailQuery = query(residentsRef, where('email', '==', currentReviewRequest.email));
-              const emailSnapshot = await getDocs(emailQuery);
-              
-              if (!emailSnapshot.empty) {
-                // Found existing resident, use their UID
-                userUid = emailSnapshot.docs[0].id;
-                console.log('Found existing resident with UID:', userUid);
-              } else {
-                throw new Error('Account already exists in Firebase Auth but not found in residents collection. UID must be provided in registration request.');
-              }
-            } else {
-              throw createError;
-            }
-          }
+        if (!currentReviewRequest.password) {
+          alert('Cannot approve: password is missing from the registration request.');
+          return;
         }
+
+        const { createUserWithEmailAndPassword, fetchSignInMethodsForEmail } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+
+        // Ensure no existing Auth account before creating
+        const signInMethods = await fetchSignInMethodsForEmail(auth, currentReviewRequest.email);
+        if (signInMethods.length > 0) {
+          alert('Account already exists for this email. Ask the user to log in or reset password.');
+          return;
+        }
+
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          currentReviewRequest.email,
+          currentReviewRequest.password
+        );
+        const userUid = userCredential.user.uid;
 
         // Save to residents collection
         const residentData = {
@@ -580,11 +551,12 @@
         // Update request status
         await updateDoc(doc(db, 'resident_requests', currentReviewRequest.id), {
           status: 'approved',
+          userId: userUid,
           approvedAt: serverTimestamp(),
           approvedBy: localStorage.getItem('iSagip_userUID') || ''
         });
 
-        // Send approval email (no password needed - they already have it from mobile registration)
+        // Send approval email (they can now log in with the password they registered)
         try {
           const fullName = `${currentReviewRequest.firstName || ''} ${currentReviewRequest.middleName || ''} ${currentReviewRequest.lastName || ''}`.trim();
           await sendApprovalEmail(
@@ -701,7 +673,7 @@
 
     /**
      * Reject a registration request
-     * Deletes the Firebase Auth account and sends rejection email
+     * Deletes the request so the user can register again
      */
     async function rejectRequest() {
       if (!currentReviewRequest || !db) return;
@@ -709,45 +681,11 @@
       const reason = prompt('Please provide a reason for rejection (optional):');
       if (reason === null) return; // User cancelled
 
-      if (!confirm('Are you sure you want to reject this registration request? The account will be deleted.')) {
+      if (!confirm('Are you sure you want to reject this registration request? The request will be deleted.')) {
         return;
       }
 
       try {
-        const userUid = currentReviewRequest.uid;
-        
-        // Update request status
-        await updateDoc(doc(db, 'resident_requests', currentReviewRequest.id), {
-          status: 'rejected',
-          rejectedAt: serverTimestamp(),
-          rejectedBy: localStorage.getItem('iSagip_userUID') || '',
-          rejectionReason: reason || '',
-          markedForDeletion: true // Flag for server-side deletion
-        });
-
-        // Mark account for deletion in a separate collection (for Cloud Function to process)
-        if (userUid) {
-          try {
-            // Create a document in a "pending_deletions" collection
-            // A Cloud Function should monitor this and delete the account
-            await setDoc(doc(db, 'pending_deletions', userUid), {
-              uid: userUid,
-              email: currentReviewRequest.email,
-              reason: reason || 'Registration rejected',
-              requestedAt: serverTimestamp(),
-              requestedBy: localStorage.getItem('iSagip_userUID') || ''
-            });
-            console.log('Account marked for deletion. UID:', userUid);
-            console.log('NOTE: Actual account deletion requires Firebase Admin SDK (Cloud Functions).');
-            console.log('Please set up a Cloud Function to monitor "pending_deletions" collection and delete accounts.');
-          } catch (deleteError) {
-            console.error('Error marking account for deletion:', deleteError);
-            // Continue with rejection even if marking fails
-          }
-        } else {
-          console.warn('No UID found in request. Account may not have been created yet.');
-        }
-
         // Send rejection email
         try {
           const fullName = `${currentReviewRequest.firstName || ''} ${currentReviewRequest.middleName || ''} ${currentReviewRequest.lastName || ''}`.trim();
@@ -761,7 +699,10 @@
           // Don't fail the rejection if email fails
         }
 
-        alert('Registration request rejected. Rejection email sent.');
+        // Delete request so user can register again
+        await deleteDoc(doc(db, 'resident_requests', currentReviewRequest.id));
+
+        alert('Registration request rejected and deleted.');
         
         // Close modal and reload data
         document.getElementById('review-modal').hidden = true;
