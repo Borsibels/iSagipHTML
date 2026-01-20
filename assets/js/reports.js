@@ -73,10 +73,15 @@
     const manageForm = document.getElementById('manage-report-form');
     const manageReportIdInput = document.getElementById('manage-report-id');
     const manageStatusSelect = document.getElementById('manage-status');
+    const manageResponderSelect = document.getElementById('manage-responder');
+    const responderCheckboxesContainer = document.getElementById('responder-checkboxes');
+    const noRespondersMessage = document.getElementById('no-responders-message');
     const manageVehicleInput = document.getElementById('manage-vehicle');
     const manageNotesInput = document.getElementById('manage-notes');
     const manageVehicleSelect = document.getElementById('manage-vehicle');
     let ambulancesMap = {};
+    let respondersMap = {}; // Firestore responder data (name, email, status)
+    let onlineRespondersMap = {}; // Realtime DB responder data (who has app open)
 
     const REALTIME_DB_URL = 'https://isagip-752d1-default-rtdb.asia-southeast1.firebasedatabase.app';
     let realtimeDb = null;
@@ -85,6 +90,7 @@
     let rawReports = {};
     let previousReportIds = new Set(); // Track previous reports to detect new ones
     let groupedReports = []; // Store grouped reports for duplicate handling
+    let showActiveOnly = false; // Filter for active reports only
 
     init();
 
@@ -97,6 +103,57 @@
         const { ref, onValue } = databaseModule;
         const reportsRef = ref(realtimeDb, 'reports');
         const ambulancesRef = ref(realtimeDb, 'ambulances');
+        const respondersRef = ref(realtimeDb, 'responders');
+
+        // Listen to online responders (those who have their responder app open)
+        onValue(
+          respondersRef,
+          (snapshot) => {
+            const value = snapshot.val() || {};
+            onlineRespondersMap = {};
+            const now = Date.now();
+            const STALE_THRESHOLD = 30 * 60 * 1000; // 30 minutes in milliseconds
+            
+            // Track which responders are currently online (have app open)
+            Object.keys(value).forEach(function(responderId) {
+              const responder = value[responderId];
+              if (responder) {
+                const updatedAt = responder.updatedAt || responder.lastUpdated || null;
+                
+                // Only consider responder online if they've updated recently (within 5 minutes)
+                // This filters out stale entries from responders who closed their app
+                if (updatedAt) {
+                  const timeSinceUpdate = now - updatedAt;
+                  if (timeSinceUpdate > STALE_THRESHOLD) {
+                    // Responder data is stale, skip them
+                    return;
+                  }
+                } else {
+                  // No timestamp, consider it stale and skip
+                  return;
+                }
+                
+                // Store that this responder is online and recently active
+                onlineRespondersMap[responderId] = {
+                  responderId: responder.responderId || responderId,
+                  name: responder.name || '',
+                  lat: responder.lat,
+                  lng: responder.lng,
+                  status: responder.status || '',
+                  updatedAt: updatedAt
+                };
+              }
+            });
+            mergeOnlineRespondersIntoMap();
+            // Refresh responder options if modal is open
+            if (manageModal && !manageModal.hidden) {
+              updateResponderOptions();
+            }
+          },
+          (error) => {
+            console.error('Failed to load online responders:', error);
+          }
+        );
 
         onValue(
           ambulancesRef,
@@ -110,13 +167,16 @@
         );
         onValue(
           reportsRef,
-          (snapshot) => {
+          async (snapshot) => {
             const value = snapshot.val() || {};
             rawReports = value;
             const previousReportsCount = reports.length;
             reports = Object.entries(value)
               .map(([id, data]) => mapReport(id, data))
               .sort((a, b) => (b.rawTimestamp || 0) - (a.rawTimestamp || 0));
+
+            // Resolve reportedBy names for reports that have UIDs but no names
+            await resolveReportedByNames(reports);
 
             // Check for new reports and play sound notification
             if (reports.length > previousReportsCount || previousReportsCount === 0) {
@@ -149,6 +209,32 @@
       } catch (error) {
         console.error('Failed to initialize reports page:', error);
       }
+
+      // Setup filter buttons
+      setupFilterButtons();
+    }
+
+    /**
+     * Setup filter buttons for active/all reports
+     */
+    function setupFilterButtons() {
+      // Filter buttons
+      document.getElementById('filter-active-btn')?.addEventListener('click', function() {
+        showActiveOnly = true;
+        this.classList.add('active');
+        document.getElementById('filter-all-btn')?.classList.remove('active');
+        renderReports();
+      });
+
+      document.getElementById('filter-all-btn')?.addEventListener('click', function() {
+        showActiveOnly = false;
+        this.classList.add('active');
+        document.getElementById('filter-active-btn')?.classList.remove('active');
+        renderReports();
+      });
+
+      // Set default to "All Reports"
+      document.getElementById('filter-all-btn')?.classList.add('active');
     }
 
     /**
@@ -342,11 +428,27 @@
     }
 
     function renderReports() {
-      if (!reports.length) {
+      // Always exclude resolved and relayed reports from main reports view
+      // They should only appear in the History page
+      let reportsToRender = reports.filter(r => {
+        const status = (r.status || '').toLowerCase();
+        return status !== 'resolved' && status !== 'relayed';
+      });
+
+      // Apply additional filter for active only if needed
+      if (showActiveOnly) {
+        // Already filtered out resolved/relayed, so this is just for consistency
+        reportsToRender = reportsToRender.filter(r => {
+          const status = (r.status || '').toLowerCase();
+          return status !== 'resolved';
+        });
+      }
+
+      if (!reportsToRender.length) {
         reportsTable.innerHTML = `
           <div class="t-row">
             <div style="grid-column:1/-1;text-align:center;padding:1.5rem;color:var(--muted);">
-              No reports yet.
+              ${showActiveOnly ? 'No active reports.' : 'No active reports. Resolved and relayed reports are shown in History.'}
             </div>
           </div>`;
         groupedReports = [];
@@ -354,7 +456,7 @@
       }
 
       // Group duplicate reports
-      groupedReports = groupDuplicateReports(reports);
+      groupedReports = groupDuplicateReports(reportsToRender);
 
       const currentUserRole = localStorage.getItem('iSagip_userRole') || '';
       const canManage = ['admin', 'system_admin', 'barangay_staff', 'responder'].includes(currentUserRole);
@@ -409,12 +511,12 @@
               <div>${escapeHtml(report.type)}</div>
               <div>${escapeHtml(report.description)}${reportersList}</div>
               <div>${formatStatusBadge(report.status)}</div>
+              <div>${actionButtons}</div>
               <div>${escapeHtml(report.street)}</div>
               <div>${escapeHtml(report.landmark)}</div>
               <div>${report.latitude != null ? report.latitude.toFixed(6) : '—'}</div>
               <div>${report.longitude != null ? report.longitude.toFixed(6) : '—'}</div>
               <div>${photoCell}</div>
-              <div>${actionButtons}</div>
               <div>${report.timestamp}</div>
               <div>${report.responseTime || '—'}</div>
               <div>${escapeHtml(report.reportedBy)}</div>
@@ -429,9 +531,14 @@
     }
 
     function updateStats() {
-      // Use grouped reports count for total (unique incidents)
-      const total = groupedReports.length > 0 ? groupedReports.length : reports.length;
-      const resolved = reports.filter((r) => r.status.toLowerCase() === 'resolved').length;
+      // Calculate stats from all reports (including resolved/relayed)
+      // But display only active reports in the table
+      const allGroupedReports = groupDuplicateReports(reports);
+      const total = allGroupedReports.length > 0 ? allGroupedReports.length : reports.length;
+      const resolved = reports.filter((r) => {
+        const status = (r.status || '').toLowerCase();
+        return status === 'resolved' || status === 'relayed';
+      }).length;
       const active = total - resolved;
 
       const responseValues = reports
@@ -448,6 +555,7 @@
       if (stats.active) stats.active.textContent = active;
       if (stats.average) stats.average.textContent = responseValues.length ? `${average} min` : '0 min';
     }
+
 
     // Details photo fullscreen viewer
     document.getElementById('view-details-photo-fullscreen')?.addEventListener('click', function() {
@@ -603,6 +711,8 @@
       // Populate report information fields
       const reportIdEl = document.getElementById('details-report-id');
       const statusEl = document.getElementById('details-status');
+      const assignedResponderEl = document.getElementById('details-assigned-responder');
+      const assignedVehicleEl = document.getElementById('details-assigned-vehicle');
       const typeEl = document.getElementById('details-type');
       const descriptionEl = document.getElementById('details-description');
       const streetEl = document.getElementById('details-street');
@@ -618,6 +728,8 @@
 
       if (reportIdEl) reportIdEl.value = report.id || 'N/A';
       if (statusEl) statusEl.value = formatStatusLabel(report.status) || 'N/A';
+      if (assignedResponderEl) assignedResponderEl.value = escapeHtml(report.assignedResponder || '—');
+      if (assignedVehicleEl) assignedVehicleEl.value = escapeHtml(report.assignedVehicle || '—');
       if (typeEl) typeEl.value = escapeHtml(report.type) || 'N/A';
       if (descriptionEl) descriptionEl.value = escapeHtml(report.description) || 'N/A';
       if (streetEl) streetEl.value = escapeHtml(report.street) || 'N/A';
@@ -683,10 +795,9 @@
     function toggleVehicleDropdown() {
       if (!manageVehicleSelect || !manageStatusSelect) return;
       const currentStatus = (manageStatusSelect.value || '').toLowerCase();
-      const isReceived = currentStatus === 'received';
       const isRelayed = currentStatus === 'relayed';
       const isResolved = currentStatus === 'resolved';
-      const shouldDisable = isReceived || isRelayed || isResolved;
+      const shouldDisable = isRelayed || isResolved;
       
       manageVehicleSelect.disabled = shouldDisable;
       if (shouldDisable) {
@@ -699,13 +810,220 @@
       }
     }
 
-    function openManageModal(reportId, raw) {
+    function toggleResponderDropdown() {
+      if (!responderCheckboxesContainer || !manageStatusSelect) return;
+      const currentStatus = (manageStatusSelect.value || '').toLowerCase();
+      const isRelayed = currentStatus === 'relayed';
+      const isResolved = currentStatus === 'resolved';
+      const shouldDisable = isRelayed || isResolved;
+      
+      // Disable/enable all checkboxes
+      const checkboxes = responderCheckboxesContainer.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        checkbox.disabled = shouldDisable;
+        if (shouldDisable) {
+          checkbox.checked = false;
+        }
+      });
+      
+      // Update container styling
+      const container = document.getElementById('responder-selection-container');
+      if (container) {
+        if (shouldDisable) {
+          container.style.opacity = '0.6';
+          container.style.cursor = 'not-allowed';
+          container.style.pointerEvents = 'none';
+        } else {
+          container.style.opacity = '1';
+          container.style.cursor = 'default';
+          container.style.pointerEvents = 'auto';
+        }
+      }
+    }
+
+    function mergeOnlineRespondersIntoMap() {
+      Object.keys(onlineRespondersMap || {}).forEach(function(onlineId) {
+        const online = onlineRespondersMap[onlineId] || {};
+        const uid = online.responderId || onlineId;
+        if (!uid) return;
+        if (!respondersMap[uid]) {
+          respondersMap[uid] = {
+            uid: uid,
+            name: online.name || uid,
+            email: '',
+            status: 'active'
+          };
+        }
+      });
+    }
+
+    async function loadResponders() {
+      if (!responderCheckboxesContainer) return;
+      try {
+        const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+        const db = window.iSagipDb;
+        if (!db) return;
+        
+        const respondersSnapshot = await getDocs(collection(db, 'responder'));
+        respondersMap = {};
+        respondersSnapshot.forEach((doc) => {
+          const data = doc.data() || {};
+          const resolvedUid = data.uid || data.userId || data.authUid || doc.id;
+          if (!resolvedUid) {
+            return;
+          }
+          respondersMap[resolvedUid] = {
+            uid: resolvedUid,
+            name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.fullName || 'Unknown',
+            email: data.email || '',
+            status: data.status || 'active'
+          };
+        });
+        mergeOnlineRespondersIntoMap();
+        updateResponderOptions();
+      } catch (error) {
+        console.error('Failed to load responders:', error);
+      }
+    }
+
+    function updateResponderOptions(selectedValues) {
+      if (!responderCheckboxesContainer || !noRespondersMessage) return;
+      
+      // Handle both single value (string) and array of values
+      const selectedArray = Array.isArray(selectedValues) 
+        ? selectedValues 
+        : (selectedValues ? [selectedValues] : []);
+      
+      // Get currently selected values from checkboxes if no explicit selection provided
+      let currentSelected = selectedArray;
+      if (currentSelected.length === 0) {
+        const checkboxes = responderCheckboxesContainer.querySelectorAll('input[type="checkbox"]:checked');
+        currentSelected = Array.from(checkboxes).map(cb => cb.value);
+      }
+      
+      // Clear container
+      responderCheckboxesContainer.innerHTML = '';
+      
+      // Filter responders: must be both ONLINE (app open) and ACTIVE (status in Firestore)
+      const now = Date.now();
+      const STALE_THRESHOLD = 30 * 60 * 1000; // 30 minutes in milliseconds
+      
+      const availableResponders = Object.keys(respondersMap).filter(uid => {
+        const responder = respondersMap[uid] || {};
+        const isActive = !responder.status || responder.status === 'active';
+        
+        // Check if responder is online (has their responder app open)
+        // Match by responderId or uid
+        let onlineData = onlineRespondersMap[uid];
+        if (!onlineData) {
+          // Try to find by responderId
+          const found = Object.keys(onlineRespondersMap).find(onlineId => {
+            const onlineResponder = onlineRespondersMap[onlineId];
+            return onlineResponder && (
+              onlineResponder.responderId === uid || 
+              onlineId === uid
+            );
+          });
+          if (found) {
+            onlineData = onlineRespondersMap[found];
+          }
+        }
+        
+        // Must be active AND online AND recently updated (within 5 minutes)
+        if (!isActive || !onlineData) {
+          return false;
+        }
+        
+        // Double-check timestamp to ensure responder is still active
+        const updatedAt = onlineData.updatedAt;
+        if (!updatedAt) {
+          return false; // No timestamp, consider stale
+        }
+        
+        const timeSinceUpdate = now - updatedAt;
+        if (timeSinceUpdate > STALE_THRESHOLD) {
+          return false; // Data is stale (older than 5 minutes)
+        }
+        
+        return true;
+      });
+      
+      if (availableResponders.length === 0) {
+        const totalActive = Object.keys(respondersMap).filter(uid => {
+          const responder = respondersMap[uid] || {};
+          return responder.status === 'active';
+        }).length;
+        const totalOnline = Object.keys(onlineRespondersMap).length;
+        
+        let message = 'No available responders. ';
+        if (totalActive === 0) {
+          message += 'No active responders in the system.';
+        } else if (totalOnline === 0) {
+          message += 'No responders currently have their app open. Responders must have their app open and be active within the last minute.';
+        } else {
+          message += 'Responders must have their app open and be active within the last minute to be assigned.';
+        }
+        
+        noRespondersMessage.textContent = message;
+        noRespondersMessage.style.display = 'block';
+        responderCheckboxesContainer.style.display = 'none';
+        return;
+      }
+      
+      noRespondersMessage.style.display = 'none';
+      responderCheckboxesContainer.style.display = 'grid';
+      
+      // Create checkbox for each available responder
+      availableResponders.forEach(function(uid) {
+        const responder = respondersMap[uid] || {};
+        const onlineData = onlineRespondersMap[uid] || 
+          Object.values(onlineRespondersMap).find(r => r.responderId === uid);
+        
+        const checkboxWrapper = document.createElement('label');
+        checkboxWrapper.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background-color 0.2s;';
+        checkboxWrapper.style.cursor = 'pointer';
+        checkboxWrapper.onmouseover = function() { this.style.backgroundColor = '#f3f6fb'; };
+        checkboxWrapper.onmouseout = function() { this.style.backgroundColor = 'transparent'; };
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = uid;
+        checkbox.checked = currentSelected.includes(uid);
+        checkbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);';
+        
+        const label = document.createElement('span');
+        const responderName = responder.name || onlineData?.name || uid;
+        label.textContent = responderName;
+        label.style.cssText = 'font-size: 14px; color: var(--text); flex: 1;';
+        
+        // Add online indicator badge
+        const onlineBadge = document.createElement('span');
+        onlineBadge.textContent = '●';
+        onlineBadge.style.cssText = 'color: #10b981; font-size: 12px; margin-left: 4px;';
+        onlineBadge.title = 'Online - Responder app is open';
+        
+        checkboxWrapper.appendChild(checkbox);
+        checkboxWrapper.appendChild(label);
+        checkboxWrapper.appendChild(onlineBadge);
+        responderCheckboxesContainer.appendChild(checkboxWrapper);
+      });
+    }
+
+    async function openManageModal(reportId, raw) {
       if (!manageModal || !manageForm) return;
       manageReportIdInput.value = reportId;
       manageStatusSelect.value = (raw.status || 'received').toLowerCase();
+      await loadResponders(); // Load responders when opening modal
+      
+      // Handle multiple assigned responders (array or single value)
+      const assignedResponderUids = raw.assignedResponderUids || 
+        (raw.assignedResponderUid ? [raw.assignedResponderUid] : []);
+      updateResponderOptions(assignedResponderUids);
+      
       updateVehicleOptions(raw.assignedVehicle || '');
       manageNotesInput.value = '';
       toggleVehicleDropdown(); // Disable vehicle dropdown if status is "received"
+      toggleResponderDropdown(); // Disable responder dropdown if status is "received"
       manageModal.hidden = false;
     }
 
@@ -740,15 +1058,39 @@
 
     function buildAmbulanceAssignmentPayload(reportId, raw, status) {
       raw = raw || {};
+      // Handle multiple assigned responders (array) or single responder (backward compatibility)
+      const assignedResponders = raw.assignedResponders || 
+        (raw.assignedResponder ? [raw.assignedResponder] : 
+        (raw.assignedResponderName ? [raw.assignedResponderName] : []));
+      const assignedResponderUids = raw.assignedResponderUids || 
+        (raw.assignedResponderUid ? [raw.assignedResponderUid] : []);
+      const primaryResponder = assignedResponders.length > 0 ? assignedResponders[0] : '';
+      
+      const street = raw.street || raw.location || '';
+      const landmark = raw.landmark || '';
+      const barangay = raw.barangay || '';
+      const defaultBarangay = 'Barangay 167 Caloocan city';
+      const cleanStreet = String(street || '').trim();
+      const cleanLandmark = String(landmark || '').trim();
+      const cleanBarangay = String(barangay || '').trim();
+      const isDefaultBarangay = cleanBarangay.toLowerCase() === defaultBarangay.toLowerCase();
+      const addressParts = [cleanStreet, cleanLandmark].filter(function(part){ return part; });
+      if (cleanBarangay && (!isDefaultBarangay || addressParts.length)) {
+        addressParts.push(cleanBarangay);
+      }
+      const fullAddress = addressParts.length ? addressParts.join(', ') : 'N/A';
+
       return {
         id: reportId,
         type: raw.emergencyType || raw.type || 'General',
         description: raw.description || raw.desc || 'No description provided',
-        address: raw.street || raw.location || 'N/A',
+        address: fullAddress,
         landmark: raw.landmark || '',
         reporter: raw.userName || raw.reportedByName || raw.by || '',
-        responder: raw.assignedResponderName || raw.assignedResponder || raw.responder || '',
-        responders: collectResponders(raw),
+        responder: primaryResponder,
+        responderUid: assignedResponderUids.length > 0 ? assignedResponderUids[0] : null,
+        responders: assignedResponders.length > 0 ? assignedResponders : collectResponders(raw),
+        responderUids: assignedResponderUids.length > 0 ? assignedResponderUids : null,
         status: formatStatusLabel(status),
         timestamp: new Date().toISOString()
       };
@@ -820,9 +1162,83 @@
       }
     }
 
-    // Add event listener to status dropdown to toggle vehicle dropdown
+    /**
+     * Notify responders that they have been dispatched to an emergency
+     * Creates assignment entries in realtime database that mobile app can listen to
+     */
+    async function notifyRespondersOfDispatch(options) {
+      if (!options || !options.responderUids || !databaseModule || !realtimeDb) {
+        console.warn('notifyRespondersOfDispatch: Missing required parameters', { options, hasModule: !!databaseModule, hasDb: !!realtimeDb });
+        return;
+      }
+      
+      const { ref, set } = databaseModule;
+      const { responderUids, reportId, reportData, assignedVehicle, note, dispatchedBy, dispatchedAt } = options;
+      
+      if (!responderUids || responderUids.length === 0) {
+        console.warn('notifyRespondersOfDispatch: No responder UIDs provided');
+        return;
+      }
+      
+      console.log('Creating dispatch assignments:', {
+        responderUids,
+        reportId,
+        assignedVehicle,
+        dispatchedAt
+      });
+      
+      try {
+        // Create assignment notification for each responder
+        const assignmentPromises = responderUids.map(async (responderUid) => {
+          if (!responderUid || responderUid.trim() === '') {
+            console.warn('Skipping invalid responder UID:', responderUid);
+            return;
+          }
+          
+          const assignmentId = `${reportId}_${responderUid}_${dispatchedAt}`;
+          const assignmentPath = `assignments/${responderUid}/${assignmentId}`;
+          
+          const assignmentData = {
+            assignmentId: assignmentId,
+            reportId: reportId,
+            responderUid: responderUid,
+            status: 'pending', // pending, accepted, en_route, arrived, completed
+            type: reportData.emergencyType || reportData.type || 'General',
+            description: reportData.description || reportData.desc || 'No description provided',
+            address: reportData.street || reportData.location || 'N/A',
+            landmark: reportData.landmark || '',
+            latitude: reportData.latitude || reportData.lat || null,
+            longitude: reportData.longitude || reportData.lng || null,
+            assignedVehicle: assignedVehicle || null,
+            note: note || '',
+            dispatchedBy: dispatchedBy || 'Staff',
+            dispatchedAt: dispatchedAt,
+            createdAt: dispatchedAt,
+            updatedAt: dispatchedAt
+          };
+          
+          console.log(`Creating assignment at path: ${assignmentPath}`, assignmentData);
+          await set(ref(realtimeDb, assignmentPath), assignmentData);
+          console.log(`Successfully created assignment for responder ${responderUid}`);
+        });
+        
+        await Promise.all(assignmentPromises);
+        console.log(`✅ Successfully dispatched ${responderUids.length} responder(s) to report ${reportId}`);
+      } catch (error) {
+        console.error('❌ Failed to notify responders of dispatch:', error);
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          responderUids,
+          reportId
+        });
+      }
+    }
+
+    // Add event listener to status dropdown to toggle vehicle and responder dropdowns
     manageStatusSelect?.addEventListener('change', function() {
       toggleVehicleDropdown();
+      toggleResponderDropdown();
     });
 
     manageModal?.addEventListener('click', function(event){
@@ -843,23 +1259,54 @@
       const now = Date.now();
       const actor = localStorage.getItem('iSagip_userUID') || 'staff';
       const newStatus = manageStatusSelect.value;
-      // Prevent vehicle assignment if status is "received", "relayed", or "resolved"
+      // Prevent assignment if status is "relayed" or "resolved"
       const normalizedStatus = newStatus.toLowerCase();
-      const assignedVehicle = (normalizedStatus === 'received' || normalizedStatus === 'relayed' || normalizedStatus === 'resolved') ? '' : manageVehicleInput.value.trim();
+      const assignmentBlocked = normalizedStatus === 'relayed' || normalizedStatus === 'resolved';
+      const assignedVehicle = assignmentBlocked ? '' : manageVehicleInput.value.trim();
+      
+      // Get all selected responders from checkboxes
+      const selectedResponderUids = assignmentBlocked
+        ? []
+        : Array.from(responderCheckboxesContainer.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(checkbox => checkbox.value)
+            .filter(uid => uid && uid.trim() !== '');
+
+      // Auto-set status to "assigned" when responders are selected while status is "received"
+      let effectiveStatus = normalizedStatus;
+      if (selectedResponderUids.length > 0 && normalizedStatus === 'received') {
+        effectiveStatus = 'assigned';
+      }
+      
+      const assignedResponderNames = selectedResponderUids
+        .map(uid => respondersMap[uid]?.name)
+        .filter(name => name);
+      
       const note = manageNotesInput.value.trim();
 
       const actorName = await resolveUserDisplayName(actor);
 
       const updates = {
-        status: newStatus,
+        status: effectiveStatus,
         assignedVehicle: assignedVehicle || null,
+        assignedResponders: assignedResponderNames.length > 0 ? assignedResponderNames : null,
+        assignedResponderUids: selectedResponderUids.length > 0 ? selectedResponderUids : null,
+        // Keep backward compatibility with single responder fields
+        assignedResponder: assignedResponderNames.length > 0 ? assignedResponderNames[0] : null,
+        assignedResponderUid: selectedResponderUids.length > 0 ? selectedResponderUids[0] : null,
         lastUpdatedAt: now,
         lastUpdatedBy: actorName,
         lastUpdatedByUid: actor
       };
 
+      // Add dispatchedAt timestamp when responders are first assigned
+      const wasAssigned = (raw.assignedResponderUids && raw.assignedResponderUids.length > 0) || raw.assignedResponderUid;
+      const isNowAssigned = selectedResponderUids.length > 0 && (effectiveStatus === 'assigned' || effectiveStatus === 'accepted' || effectiveStatus === 'responding');
+      if (isNowAssigned && !wasAssigned) {
+        updates.dispatchedAt = now;
+      }
+
       const wasResolved = (raw.status || '').toLowerCase() === 'resolved';
-      const nowResolved = newStatus === 'resolved';
+      const nowResolved = effectiveStatus === 'resolved';
 
       if (nowResolved && !wasResolved) {
         updates.closedBy = actorName;
@@ -880,9 +1327,21 @@
 
         const historyRef = push(ref(realtimeDb, `reports/${reportId}/history`));
         const changeDetails = [];
-        if ((raw.status || 'received').toLowerCase() !== newStatus) {
-          changeDetails.push(`Status: ${formatStatusLabel(raw.status)} → ${formatStatusLabel(newStatus)}`);
+        if ((raw.status || 'received').toLowerCase() !== effectiveStatus) {
+          changeDetails.push(`Status: ${formatStatusLabel(raw.status)} → ${formatStatusLabel(effectiveStatus)}`);
         }
+        
+        // Compare responder arrays
+        const previousResponderUids = raw.assignedResponderUids || (raw.assignedResponderUid ? [raw.assignedResponderUid] : []);
+        const previousResponderNames = raw.assignedResponders || (raw.assignedResponder ? [raw.assignedResponder] : []);
+        const responderUidsChanged = JSON.stringify(previousResponderUids.sort()) !== JSON.stringify(selectedResponderUids.sort());
+        
+        if (responderUidsChanged) {
+          const previousNamesStr = previousResponderNames.length > 0 ? previousResponderNames.join(', ') : 'None';
+          const newNamesStr = assignedResponderNames.length > 0 ? assignedResponderNames.join(', ') : 'None';
+          changeDetails.push(`Responders: "${previousNamesStr}" → "${newNamesStr}"`);
+        }
+        
         if ((raw.assignedVehicle || '') !== assignedVehicle) {
           changeDetails.push(`Vehicle: "${raw.assignedVehicle || 'None'}" → "${assignedVehicle || 'None'}"`);
         }
@@ -901,10 +1360,40 @@
         await syncAmbulancesForReport({
           previousVehicle: raw.assignedVehicle,
           nextVehicle: assignedVehicle,
-          status: newStatus,
+          status: effectiveStatus,
           reportId,
           reportData: { ...raw, ...updates }
         });
+
+        // Notify assigned responders about the dispatch
+        // Create assignments when responders are assigned (not resolved/relayed)
+        const shouldCreateAssignments = selectedResponderUids.length > 0 && 
+                                       effectiveStatus !== 'resolved' && 
+                                       effectiveStatus !== 'relayed' &&
+                                       effectiveStatus !== 'received';
+        
+        // Check if responders were newly assigned (not just updated)
+        // Reuse previousResponderUids from above (line 1291)
+        const respondersChanged = JSON.stringify(previousResponderUids.sort()) !== JSON.stringify(selectedResponderUids.sort());
+        
+        // Create assignments for newly assigned responders
+        if (shouldCreateAssignments && respondersChanged) {
+          // Get newly assigned responders (ones that weren't in previous list)
+          const newlyAssignedUids = selectedResponderUids.filter(uid => !previousResponderUids.includes(uid));
+          
+          if (newlyAssignedUids.length > 0) {
+            console.log('Creating assignments for newly assigned responders:', newlyAssignedUids);
+            await notifyRespondersOfDispatch({
+              responderUids: newlyAssignedUids,
+              reportId: reportId,
+              reportData: { ...raw, ...updates },
+              assignedVehicle: assignedVehicle,
+              note: note,
+              dispatchedBy: actorName,
+              dispatchedAt: now
+            });
+          }
+        }
 
         manageModal.hidden = true;
         manageNotesInput.value = '';
@@ -925,17 +1414,80 @@
           ? Math.round((closedAt - timestamp) / 60000)
           : null;
 
+      // Handle multiple responders (array) or single responder (backward compatibility)
+      const assignedResponders = raw.assignedResponders || 
+        (raw.assignedResponder ? [raw.assignedResponder] : []);
+      const assignedResponderStr = assignedResponders.length > 0 
+        ? assignedResponders.join(', ') 
+        : '';
+
+      // Resolve reportedBy - check multiple possible field names (case-insensitive check)
+      let reportedBy = null;
+      let reportedByUid = null;
+      
+      // Check all possible name field variations
+      const nameFields = ['userName', 'reportedByName', 'by', 'reporterName', 'reportedBy', 
+                          'reporter', 'user', 'reportedByUser', 'reporterUser', 'name',
+                          'user_name', 'reported_by_name', 'reporter_name'];
+      
+      for (const field of nameFields) {
+        if (raw[field] && raw[field] !== 'Unknown' && raw[field].trim() !== '') {
+          reportedBy = raw[field];
+          break;
+        }
+      }
+      
+      // Check all possible UID field variations
+      const uidFields = ['userId', 'userUid', 'reportedByUid', 'reporterUid', 'reportedByUserId',
+                        'userID', 'user_id', 'reported_by_uid', 'reporter_uid', 'uid',
+                        'reporterId', 'reportedById'];
+      
+      for (const field of uidFields) {
+        if (raw[field] && raw[field].trim() !== '') {
+          reportedByUid = raw[field];
+          break;
+        }
+      }
+      
+      // If we have userEmail but no name/UID, try to resolve from email
+      const userEmail = raw.userEmail || raw.email || raw.user_email || null;
+      if (!reportedBy && !reportedByUid && userEmail) {
+        // Store email for async resolution
+        reportedByUid = userEmail; // We'll use email to look up the user
+      }
+      
+      // Debug: Always log reporter info for troubleshooting
+      if (id && (!reportedBy || reportedBy === 'Unknown')) {
+        console.log(`Report ${id} - Reporter Info:`, {
+          reportedBy: reportedBy || 'NOT FOUND',
+          reportedByUid: reportedByUid || 'NOT FOUND',
+          availableFields: Object.keys(raw).filter(k => 
+            k.toLowerCase().includes('user') || 
+            k.toLowerCase().includes('report') || 
+            k.toLowerCase().includes('by') ||
+            k.toLowerCase().includes('name') ||
+            k.toLowerCase().includes('uid') ||
+            k.toLowerCase().includes('id')
+          ),
+          allFields: Object.keys(raw)
+        });
+      }
+
       return {
         id,
         type: raw.emergencyType || raw.type || 'General',
         description: raw.description || raw.desc || 'No description provided',
         status: raw.status || 'Received',
+        assignedResponder: assignedResponderStr,
+        assignedResponders: assignedResponders,
+        assignedVehicle: raw.assignedVehicle || '',
         street: raw.street || 'N/A',
         landmark: raw.landmark || 'N/A',
         latitude: (function(){ const v = parseFloat(raw.latitude ?? raw.lat); return isFinite(v) ? v : null; })(),
         longitude: (function(){ const v = parseFloat(raw.longitude ?? raw.lng); return isFinite(v) ? v : null; })(),
         photo: raw.photoUri || raw.photoUrl || raw.photo || '',
-        reportedBy: raw.userName || raw.reportedByName || raw.by || 'Unknown',
+        reportedBy: reportedBy || (reportedByUid ? 'Loading...' : 'Unknown'),
+        reportedByUid: reportedByUid,
         notes: raw.residentNotes || raw.notes || '',
         closedBy: raw.closedBy || raw.closedByName || '',
         lastUpdatedBy: raw.lastUpdatedBy || raw.lastUpdatedByName || '',
@@ -952,34 +1504,121 @@
       let color = '#3b82f6';
       if (normalized === 'resolved') color = '#10b981';
       else if (normalized === 'accepted' || normalized === 'responding' || normalized === 'relayed') color = '#f97316';
+      else if (normalized === 'arrived' || normalized === 'assigned') color = '#3b82f6';
       else if (normalized === 'emergency') color = '#ef4444';
       return `<span class="status-badge" style="background: ${color}1a; color: ${color}; font-weight:600;">${formatStatusLabel(
         status
       )}</span>`;
     }
 
-    async function resolveUserDisplayName(uid){
-      if (!uid) return 'Unknown';
+    async function resolveUserDisplayName(uidOrEmail){
+      if (!uidOrEmail) return 'Unknown';
+      
+      // Check if it's an email address
+      const isEmail = uidOrEmail.includes('@');
+      
       try{
-        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+        const { doc, getDoc, collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
         const db = window.iSagipDb;
-        if (!db) return uid;
-        const adminDoc = await getDoc(doc(db, 'admin', uid));
+        if (!db) return uidOrEmail;
+        
+        // If it's an email, search by email first
+        if (isEmail) {
+          // Search in residents collection
+          const residentsQuery = query(collection(db, 'residents'), where('email', '==', uidOrEmail));
+          const residentsSnapshot = await getDocs(residentsQuery);
+          if (!residentsSnapshot.empty) {
+            const data = residentsSnapshot.docs[0].data();
+            const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName;
+            if (name) return name;
+          }
+          
+          // Search in staff collection
+          const staffQuery = query(collection(db, 'staff'), where('email', '==', uidOrEmail));
+          const staffSnapshot = await getDocs(staffQuery);
+          if (!staffSnapshot.empty) {
+            const data = staffSnapshot.docs[0].data();
+            const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName;
+            if (name) return name;
+          }
+          
+          // Search in admin collection
+          const adminQuery = query(collection(db, 'admin'), where('email', '==', uidOrEmail));
+          const adminSnapshot = await getDocs(adminQuery);
+          if (!adminSnapshot.empty) {
+            const data = adminSnapshot.docs[0].data();
+            const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName;
+            if (name) return name;
+          }
+          
+          // If no name found, return email as fallback
+          return uidOrEmail;
+        }
+        
+        // If it's a UID, try direct lookup
+        const adminDoc = await getDoc(doc(db, 'admin', uidOrEmail));
         if (adminDoc.exists()) {
-          return adminDoc.data().lastName || adminDoc.data().firstName || uid;
+          const data = adminDoc.data();
+          return `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || uidOrEmail;
         }
-        const staffDoc = await getDoc(doc(db, 'staff', uid));
+        const staffDoc = await getDoc(doc(db, 'staff', uidOrEmail));
         if (staffDoc.exists()) {
-          return staffDoc.data().lastName || staffDoc.data().firstName || uid;
+          const data = staffDoc.data();
+          return `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || uidOrEmail;
         }
-        const residentDoc = await getDoc(doc(db, 'residents', uid));
+        const residentDoc = await getDoc(doc(db, 'residents', uidOrEmail));
         if (residentDoc.exists()) {
-          return residentDoc.data().lastName || residentDoc.data().firstName || uid;
+          const data = residentDoc.data();
+          return `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || uidOrEmail;
         }
       } catch (error){
-        console.error('Failed to resolve user name for UID', uid, error);
+        console.error('Failed to resolve user name for', uidOrEmail, error);
       }
-      return uid;
+      return uidOrEmail;
+    }
+
+    /**
+     * Resolve reportedBy names for reports that have UIDs but no names
+     */
+    async function resolveReportedByNames(reports) {
+      const reportsToResolve = reports.filter(r => 
+        (!r.reportedBy || r.reportedBy === 'Unknown' || r.reportedBy === 'Loading...') && 
+        r.reportedByUid
+      );
+      
+      if (reportsToResolve.length === 0) {
+        console.log('No reports need name resolution');
+        return;
+      }
+      
+      console.log(`Resolving names for ${reportsToResolve.length} report(s)`);
+      
+      // Resolve names for all reports that need it
+      const resolutionPromises = reportsToResolve.map(async (report) => {
+        try {
+          const name = await resolveUserDisplayName(report.reportedByUid);
+          if (name && name !== 'Unknown') {
+            // Only update if we got a meaningful name (not the same as the UID/email)
+            if (name !== report.reportedByUid) {
+              report.reportedBy = name;
+              console.log(`✅ Resolved reporter name for report ${report.id}: ${name}`);
+            } else {
+              // If name is same as email/UID, use it anyway (better than Unknown)
+              report.reportedBy = name;
+              console.log(`⚠️ Using email/UID as name for report ${report.id}: ${name}`);
+            }
+          } else {
+            console.warn(`Could not resolve name for ${report.reportedByUid} in report ${report.id}`);
+          }
+        } catch (error) {
+          console.error(`Error resolving name for report ${report.id}:`, error);
+        }
+      });
+      
+      await Promise.all(resolutionPromises);
+      
+      // Re-render reports after resolving names
+      renderReports();
     }
 
     function formatStatusLabel(status) {

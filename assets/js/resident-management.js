@@ -139,11 +139,19 @@
         pendingRequests = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          console.log('Document found:', docSnap.id, data);
-          pendingRequests.push({
-            id: docSnap.id,
-            ...data
-          });
+          const status = data.status || 'pending'; // Default to pending if status is missing
+          
+          // Only include requests that are actually pending (exclude approved/rejected)
+          if (status === 'pending') {
+            console.log('Document found:', docSnap.id, 'Status:', status, data);
+            pendingRequests.push({
+              id: docSnap.id,
+              ...data,
+              status: status // Ensure status is set
+            });
+          } else {
+            console.log('Skipping document with non-pending status:', docSnap.id, 'Status:', status);
+          }
         });
         
         console.log('Total pending requests loaded:', pendingRequests.length);
@@ -201,11 +209,19 @@
 
       console.log('Rendering', pendingRequests.length, 'pending requests');
 
-      // Apply search filter
+      // Apply search filter and status filter (ensure only pending requests are shown)
       const searchTerm = document.getElementById('pending-search')?.value.toLowerCase() || '';
       const sortBy = document.getElementById('pending-sort')?.value || 'newest';
       
       let filtered = pendingRequests.filter(req => {
+        // First, ensure status is pending (exclude approved/rejected)
+        const status = req.status || 'pending';
+        if (status !== 'pending') {
+          console.log('Filtering out non-pending request:', req.id, 'Status:', status);
+          return false;
+        }
+        
+        // Then apply search filter
         const name = `${req.firstName || ''} ${req.lastName || ''}`.toLowerCase();
         const email = (req.email || '').toLowerCase();
         return name.includes(searchTerm) || email.includes(searchTerm);
@@ -483,7 +499,8 @@
 
     /**
      * Approve a registration request
-     * Creates Firebase Auth account only upon approval
+     * Note: Account is already created in Firebase Auth from mobile app registration
+     * We just need to update the status and send approval email
      */
     async function approveRequest() {
       if (!currentReviewRequest || !db) return;
@@ -494,27 +511,55 @@
 
       try {
         const auth = window.iSagipAuth;
+        let userUid = currentReviewRequest.uid; // UID from mobile app registration
 
-        if (!currentReviewRequest.password) {
-          alert('Cannot approve: password is missing from the registration request.');
-          return;
+        // If UID exists, account was already created in mobile app
+        // If not, try to get existing user or create new one (fallback for web registrations)
+        if (!userUid) {
+          try {
+            const { createUserWithEmailAndPassword, fetchSignInMethodsForEmail } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+            
+            // Check if account already exists
+            const signInMethods = await fetchSignInMethodsForEmail(auth, currentReviewRequest.email);
+            
+            if (signInMethods.length > 0) {
+              // Account exists but UID wasn't in request - we can't get UID without password
+              // In this case, we'll need to use the email to find the user in Firestore
+              // or ask user to provide UID. For now, we'll throw a helpful error.
+              throw new Error('Account already exists but UID is missing from request. Please ensure mobile app includes UID when creating registration request.');
+            } else {
+              // Account doesn't exist, create it
+              const accountPassword = currentReviewRequest.password || 'TempPassword123!';
+              const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                currentReviewRequest.email,
+                accountPassword
+              );
+              userUid = userCredential.user.uid;
+            }
+          } catch (createError) {
+            if (createError.code === 'auth/email-already-in-use') {
+              // Account exists but we don't have the UID
+              // Try to find user in Firestore by email, or use email as fallback
+              console.warn('Account already exists but UID not provided. Attempting to find user by email...');
+              
+              // Try to find existing resident by email in Firestore
+              const residentsRef = collection(db, 'residents');
+              const emailQuery = query(residentsRef, where('email', '==', currentReviewRequest.email));
+              const emailSnapshot = await getDocs(emailQuery);
+              
+              if (!emailSnapshot.empty) {
+                // Found existing resident, use their UID
+                userUid = emailSnapshot.docs[0].id;
+                console.log('Found existing resident with UID:', userUid);
+              } else {
+                throw new Error('Account already exists in Firebase Auth but not found in residents collection. UID must be provided in registration request.');
+              }
+            } else {
+              throw createError;
+            }
+          }
         }
-
-        const { createUserWithEmailAndPassword, fetchSignInMethodsForEmail } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
-
-        // Ensure no existing Auth account before creating
-        const signInMethods = await fetchSignInMethodsForEmail(auth, currentReviewRequest.email);
-        if (signInMethods.length > 0) {
-          alert('Account already exists for this email. Ask the user to log in or reset password.');
-          return;
-        }
-
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          currentReviewRequest.email,
-          currentReviewRequest.password
-        );
-        const userUid = userCredential.user.uid;
 
         // Save to residents collection
         const residentData = {
@@ -548,15 +593,24 @@
 
         await setDoc(doc(db, 'residents', userUid), residentData);
 
-        // Update request status
-        await updateDoc(doc(db, 'resident_requests', currentReviewRequest.id), {
+        // Update request status - ensure it's marked as approved
+        const requestRef = doc(db, 'resident_requests', currentReviewRequest.id);
+        await updateDoc(requestRef, {
           status: 'approved',
-          userId: userUid,
           approvedAt: serverTimestamp(),
           approvedBy: localStorage.getItem('iSagip_userUID') || ''
         });
+        
+        // Verify the update was successful
+        const updatedRequest = await getDoc(requestRef);
+        const updatedStatus = updatedRequest.data()?.status;
+        console.log('Request status updated to:', updatedStatus);
+        
+        if (updatedStatus !== 'approved') {
+          console.warn('Warning: Request status may not have been updated correctly. Expected: approved, Got:', updatedStatus);
+        }
 
-        // Send approval email (they can now log in with the password they registered)
+        // Send approval email (no password needed - they already have it from mobile registration)
         try {
           const fullName = `${currentReviewRequest.firstName || ''} ${currentReviewRequest.middleName || ''} ${currentReviewRequest.lastName || ''}`.trim();
           await sendApprovalEmail(
@@ -570,11 +624,20 @@
 
         alert('Registration request approved successfully!');
         
+        // Store the request ID before clearing the variable
+        const approvedRequestId = currentReviewRequest.id;
+        
         // Close modal and reload data
         document.getElementById('review-modal').hidden = true;
         currentReviewRequest = null;
-        loadPendingRequests();
-        loadApprovedResidents();
+        
+        // Remove the approved request from the local array immediately
+        pendingRequests = pendingRequests.filter(req => req.id !== approvedRequestId);
+        renderPendingRequests();
+        
+        // Reload from database to ensure consistency
+        await loadPendingRequests();
+        await loadApprovedResidents();
       } catch (error) {
         console.error('Error approving request:', error);
         alert('Error approving request: ' + (error.message || 'Unknown error'));
@@ -673,7 +736,8 @@
 
     /**
      * Reject a registration request
-     * Deletes the request so the user can register again
+     * Deletes the request document from resident_requests collection,
+     * marks Firebase Auth account for deletion, and sends rejection email
      */
     async function rejectRequest() {
       if (!currentReviewRequest || !db) return;
@@ -681,11 +745,41 @@
       const reason = prompt('Please provide a reason for rejection (optional):');
       if (reason === null) return; // User cancelled
 
-      if (!confirm('Are you sure you want to reject this registration request? The request will be deleted.')) {
+      if (!confirm('Are you sure you want to reject this registration request? The account will be deleted.')) {
         return;
       }
 
       try {
+        const userUid = currentReviewRequest.uid;
+        
+        // Delete the request document from resident_requests collection
+        const requestRef = doc(db, 'resident_requests', currentReviewRequest.id);
+        await deleteDoc(requestRef);
+        console.log('Request document deleted from resident_requests:', currentReviewRequest.id);
+
+        // Mark account for deletion in a separate collection (for Cloud Function to process)
+        if (userUid) {
+          try {
+            // Create a document in a "pending_deletions" collection
+            // A Cloud Function should monitor this and delete the account
+            await setDoc(doc(db, 'pending_deletions', userUid), {
+              uid: userUid,
+              email: currentReviewRequest.email,
+              reason: reason || 'Registration rejected',
+              requestedAt: serverTimestamp(),
+              requestedBy: localStorage.getItem('iSagip_userUID') || ''
+            });
+            console.log('Account marked for deletion. UID:', userUid);
+            console.log('NOTE: Actual account deletion requires Firebase Admin SDK (Cloud Functions).');
+            console.log('Please set up a Cloud Function to monitor "pending_deletions" collection and delete accounts.');
+          } catch (deleteError) {
+            console.error('Error marking account for deletion:', deleteError);
+            // Continue with rejection even if marking fails
+          }
+        } else {
+          console.warn('No UID found in request. Account may not have been created yet.');
+        }
+
         // Send rejection email
         try {
           const fullName = `${currentReviewRequest.firstName || ''} ${currentReviewRequest.middleName || ''} ${currentReviewRequest.lastName || ''}`.trim();
@@ -699,15 +793,21 @@
           // Don't fail the rejection if email fails
         }
 
-        // Delete request so user can register again
-        await deleteDoc(doc(db, 'resident_requests', currentReviewRequest.id));
-
-        alert('Registration request rejected and deleted.');
+        alert('Registration request rejected and deleted. Rejection email sent.');
         
-        // Close modal and reload data
+        // Store the request ID before clearing the variable
+        const rejectedRequestId = currentReviewRequest.id;
+        
+        // Close modal first
         document.getElementById('review-modal').hidden = true;
         currentReviewRequest = null;
-        loadPendingRequests();
+        
+        // Remove the rejected request from the local array immediately
+        pendingRequests = pendingRequests.filter(req => req.id !== rejectedRequestId);
+        renderPendingRequests();
+        
+        // Reload from database to ensure consistency (deleted document won't appear)
+        await loadPendingRequests();
       } catch (error) {
         console.error('Error rejecting request:', error);
         alert('Error rejecting request: ' + (error.message || 'Unknown error'));

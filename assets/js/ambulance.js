@@ -241,6 +241,15 @@
       if (!assignment && !amb.assignmentId) return '';
       var typeLabel = assignment?.type || 'Emergency Dispatch';
       var address = assignment?.address || '';
+      var responderNameMap = {};
+      if (assignment && Array.isArray(assignment.responderUids) && Array.isArray(assignment.responders)) {
+        assignment.responderUids.forEach(function(uid, index) {
+          var name = assignment.responders[index];
+          if (uid && name) {
+            responderNameMap[String(uid)] = String(name);
+          }
+        });
+      }
       var responderEntries = Array.isArray(amb.responderEntries) && amb.responderEntries.length
         ? amb.responderEntries
         : (Array.isArray(amb.responders) ? amb.responders.map(function(name){ return { id: name, name: name }; }) : []);
@@ -269,13 +278,14 @@
                   ? responderEntries.map(function(r){ 
                       var responder = responderLocations[r.id] || responderLocations[r.responderId];
                       var statusBadge = responder && responder.status ? '<span style="font-size:11px;color:#64748b;"> ('+responder.status+')</span>' : '';
-                      return '<li>'+(r.name || r.id)+statusBadge+'</li>'; 
+                      var responderId = String(r.responderId || r.id || '').trim();
+                      var resolvedName = r.name || responderNameMap[responderId] || responderNameMap[String(r.id || '')] || responderId;
+                      return '<li>'+(resolvedName || 'Unknown')+statusBadge+'</li>'; 
                     }).join('')
                   : '<li class="muted">No responders recorded</li>'
               )+
             '</ul>'+
           '</details>'+
-          (assignment?.responder ? '<p><strong>Second Responder:</strong> '+assignment.responder+'</p>' : '')+
         '</div>'
       );
     }
@@ -321,7 +331,6 @@
             '</div>'+
             (a.location?'<div class="amb-meta"><span>Location:</span> '+a.location+(a.assignmentId? ' <small>(Report '+a.assignmentId+')</small>':'' )+'</div>':'')+
             (a.crewLead?'<div class="amb-meta"><span>Crew Lead:</span> '+a.crewLead+'</div>':'')+
-            (a.secondaryResponder?'<div class="amb-meta"><span>Second Responder:</span> '+a.secondaryResponder+'</div>':'')+
             '<div class="amb-meta"><span>Last Update:</span> '+formatTimestamp(a.lastUpdated)+'</div>'+
             renderAssignment(a)+
             renderMaintenance(a)+
@@ -528,6 +537,15 @@
       if (ambResponderList) {
         // Get reportId to find matching responders
         var reportId = assignment.id || amb.assignmentId || null;
+        var responderNameMap = {};
+        if (assignment && Array.isArray(assignment.responderUids) && Array.isArray(assignment.responders)) {
+          assignment.responderUids.forEach(function(uid, index) {
+            var name = assignment.responders[index];
+            if (uid && name) {
+              responderNameMap[String(uid)] = String(name);
+            }
+          });
+        }
         var matchedResponders = [];
         
         // Find responders by reportId
@@ -564,7 +582,10 @@
               ? amb.responderEntries
               : (Array.isArray(assignment.responders) ? normalizeResponderEntries(assignment.responders) : []));
         
-        var responderList = responderEntries.map(function(r){ return r.name || r.id; });
+        var responderList = responderEntries.map(function(r){
+          var responderId = String(r.responderId || r.id || '').trim();
+          return r.name || responderNameMap[responderId] || responderNameMap[String(r.id || '')] || responderId;
+        });
         var primaryResponder = responderEntries[0];
         var primaryLoc = null;
         if (primaryResponder) {
@@ -578,7 +599,9 @@
                              responderLocations[r.responderId] || 
                              (r.lat && r.lng ? r : null);
               var statusInfo = responder && responder.status ? ' <span style="color:#64748b;font-size:11px;">('+responder.status+')</span>' : '';
-              return '<li>'+(r.name || r.id || 'Unknown')+statusInfo+'</li>'; 
+              var responderId = String(r.responderId || r.id || '').trim();
+              var displayName = r.name || responderNameMap[responderId] || responderNameMap[String(r.id || '')] || responderId || 'Unknown';
+              return '<li>'+displayName+statusInfo+'</li>'; 
             }).join('')
           : '<li class="muted">No responders recorded</li>';
       }

@@ -1,5 +1,5 @@
 /**
- * Mass Registration System for Staff and Responders
+ * Mass Registration System for Residents
  * Handles CSV upload, manual entry, and automated account creation with email notifications
  */
 
@@ -7,11 +7,9 @@
   'use strict';
 
   // Initialize EmailJS (you'll need to set your public key)
-  // Get your public key from https://dashboard.emailjs.com/admin/integration
-  // For now, we'll use a placeholder - you need to configure this
-  const EMAILJS_PUBLIC_KEY = 'HdfCtAM1oRBEUuyy9'; // Replace with your EmailJS public key
-  const EMAILJS_SERVICE_ID = 'service_c04v2hd'; // Replace with your EmailJS service ID
-  const EMAILJS_TEMPLATE_ID = 'template_36nko5r'; // Replace with your EmailJS template ID
+  const EMAILJS_PUBLIC_KEY = 'HdfCtAM1oRBEUuyy9'; // Same as staff registration
+  const EMAILJS_SERVICE_ID = 'service_c04v2hd'; // Same as staff registration
+  const EMAILJS_TEMPLATE_ID = 'template_gyywi28'; // You can use the same template or create a new one
 
   // Initialize EmailJS if public key is set
   if (EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY' && typeof emailjs !== 'undefined') {
@@ -19,7 +17,7 @@
   }
 
   let parsedData = [];
-  let currentMode = 'manual';
+  let currentMode = 'csv';
 
   // ========================================
   // MODE SETUP (CSV / MANUAL TOGGLE)
@@ -110,7 +108,7 @@
         uploadSection.classList.remove('dragover');
         
         const file = e.dataTransfer.files[0];
-        if (file && file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
           fileInput.files = e.dataTransfer.files;
           fileInput.dispatchEvent(new Event('change'));
         } else {
@@ -122,7 +120,7 @@
 
   /**
    * Parse CSV content
-   * Expected format: Email, Full Name, Age, Role, Responder Type (optional)
+   * Expected format: Email, Full Name, Gender, Birth Date, Contact, Address
    * Full Name format: "Last Name, First Name Middle Name" or "Last Name, First Name"
    */
   function parseCSV(csv) {
@@ -136,16 +134,16 @@
 
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
-      if (values.length < 3) continue; // Skip empty rows
+      if (values.length < 4) continue; // Skip empty rows
 
       const email = values[0] || '';
       const fullName = values[1] || '';
-      const age = parseInt(values[2]) || 0;
-      const role = (values[3] || 'barangay_staff').toLowerCase();
-      const responderType = values[4] || 'Fire';
+      const gender = values[2] || '';
+      const birthDate = values[3] || '';
+      const contact = values[4] || '';
+      const address = values[5] || '';
 
       // Parse Full Name into Last Name, First Name, Middle Name
-      // Expected format: "Last Name, First Name Middle Name" or "Last Name, First Name"
       let lastName = '';
       let firstName = '';
       let middleName = '';
@@ -178,13 +176,14 @@
         lastName: lastName,
         firstName: firstName,
         middleName: middleName || '',
-        age: age,
-        role: role,
-        responderType: role === 'responder' ? responderType : null
+        gender: gender,
+        birthDate: birthDate,
+        contact: contact,
+        address: address
       };
 
       // Validate entry
-      if (!entry.email || !entry.lastName || !entry.firstName || !entry.age || entry.age < 1) {
+      if (!entry.email || !entry.lastName || !entry.firstName || !entry.gender || !entry.birthDate || !entry.contact || !entry.address) {
         console.warn('Skipping invalid row:', entry);
         continue;
       }
@@ -203,16 +202,17 @@
     if (!preview || data.length === 0) return;
 
     let html = '<table><thead><tr>';
-    html += '<th>Email</th><th>Full Name</th><th>Age</th><th>Role</th><th>Responder Type</th>';
+    html += '<th>Email</th><th>Full Name</th><th>Gender</th><th>Birth Date</th><th>Contact</th><th>Address</th>';
     html += '</tr></thead><tbody>';
 
     data.forEach(entry => {
       html += '<tr>';
       html += '<td>' + escapeHtml(entry.email) + '</td>';
       html += '<td>' + escapeHtml(entry.fullName) + '</td>';
-      html += '<td>' + entry.age + '</td>';
-      html += '<td>' + escapeHtml(entry.role) + '</td>';
-      html += '<td>' + escapeHtml(entry.responderType || '-') + '</td>';
+      html += '<td>' + escapeHtml(entry.gender) + '</td>';
+      html += '<td>' + escapeHtml(entry.birthDate) + '</td>';
+      html += '<td>' + escapeHtml(entry.contact) + '</td>';
+      html += '<td>' + escapeHtml(entry.address) + '</td>';
       html += '</tr>';
     });
 
@@ -230,23 +230,8 @@
 
     if (!addBtn || !entriesContainer) return;
 
-    // Toggle responder type field based on role
-    function toggleResponderType(row) {
-      const roleSelect = row.querySelector('.entry-role');
-      const responderWrap = row.querySelector('.entry-responder-type-wrap');
-      if (roleSelect && responderWrap) {
-        responderWrap.style.display = roleSelect.value === 'responder' ? 'block' : 'none';
-      }
-    }
-
     // Add event listeners to existing rows
     entriesContainer.querySelectorAll('.entry-row').forEach(row => {
-      const roleSelect = row.querySelector('.entry-role');
-      if (roleSelect) {
-        roleSelect.addEventListener('change', () => toggleResponderType(row));
-        toggleResponderType(row);
-      }
-
       const removeBtn = row.querySelector('.remove-row-btn');
       if (removeBtn) {
         removeBtn.addEventListener('click', () => {
@@ -278,23 +263,24 @@
           <input type="text" class="input entry-middle-name" placeholder="Santos" />
         </label>
         <label>
-          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Age *</span>
-          <input type="number" class="input entry-age" placeholder="25" min="1" max="120" required />
+          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Gender *</span>
+          <select class="input entry-gender" required>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Prefer not to say">Prefer not to say</option>
+          </select>
         </label>
         <label>
-          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Role *</span>
-          <select class="input entry-role" required>
-            <option value="responder">Responder</option>
-            <option value="barangay_staff">Barangay Staff</option>
-          </select>
+          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Birth Date *</span>
+          <input type="date" class="input entry-birthdate" required />
         </label>
-        <label class="entry-responder-type-wrap">
-          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Responder Type *</span>
-          <select class="input entry-responder-type">
-            <option value="Fire">Fire</option>
-            <option value="Medic">Medic</option>
-            <option value="Tanod">Tanod</option>
-          </select>
+        <label>
+          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Contact *</span>
+          <input type="tel" class="input entry-contact" placeholder="09123456789" required />
+        </label>
+        <label style="grid-column: 1/-1;">
+          <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Address *</span>
+          <input type="text" class="input entry-address" placeholder="Street Address" required />
         </label>
         <button type="button" class="remove-row-btn">Remove</button>
       `;
@@ -302,12 +288,6 @@
       entriesContainer.appendChild(newRow);
 
       // Setup event listeners for new row
-      const roleSelect = newRow.querySelector('.entry-role');
-      if (roleSelect) {
-        roleSelect.addEventListener('change', () => toggleResponderType(newRow));
-        toggleResponderType(newRow);
-      }
-
       const removeBtn = newRow.querySelector('.remove-row-btn');
       if (removeBtn) {
         removeBtn.addEventListener('click', () => {
@@ -338,24 +318,26 @@
       const lastName = row.querySelector('.entry-last-name')?.value.trim();
       const firstName = row.querySelector('.entry-first-name')?.value.trim();
       const middleName = row.querySelector('.entry-middle-name')?.value.trim();
-      const age = parseInt(row.querySelector('.entry-age')?.value);
-      const role = row.querySelector('.entry-role')?.value;
-      const responderType = row.querySelector('.entry-responder-type')?.value || 'Fire';
+      const gender = row.querySelector('.entry-gender')?.value;
+      const birthDate = row.querySelector('.entry-birthdate')?.value;
+      const contact = row.querySelector('.entry-contact')?.value.trim();
+      const address = row.querySelector('.entry-address')?.value.trim();
 
       const fullName = (lastName && firstName) 
         ? `${lastName}, ${firstName}${middleName ? ' ' + middleName : ''}` 
         : '';
 
-      if (email && lastName && firstName && age && age > 0 && role) {
+      if (email && lastName && firstName && gender && birthDate && contact && address) {
         entries.push({
           email: email.toLowerCase(),
           fullName: fullName,
           lastName: lastName,
           firstName: firstName,
           middleName: middleName || '',
-          age: age,
-          role: role,
-          responderType: role === 'responder' ? responderType : null
+          gender: gender,
+          birthDate: birthDate,
+          contact: contact,
+          address: address
         });
       }
     });
@@ -395,7 +377,7 @@
       }
 
       if (data.length === 0) {
-        alert('Please add at least one user to register.');
+        alert('Please add at least one resident to register.');
         return;
       }
 
@@ -408,14 +390,17 @@
         if (!entry.lastName || !entry.firstName) {
           validationErrors.push(`Row ${index + 1}: First and last name are required`);
         }
-        if (!entry.age || entry.age < 1 || entry.age > 120) {
-          validationErrors.push(`Row ${index + 1}: Age must be between 1 and 120`);
+        if (!entry.gender) {
+          validationErrors.push(`Row ${index + 1}: Gender is required`);
         }
-        if (!entry.role || !['responder', 'barangay_staff'].includes(entry.role)) {
-          validationErrors.push(`Row ${index + 1}: Invalid role`);
+        if (!entry.birthDate) {
+          validationErrors.push(`Row ${index + 1}: Birth date is required`);
         }
-        if (entry.role === 'responder' && !entry.responderType) {
-          validationErrors.push(`Row ${index + 1}: Responder type is required for responders`);
+        if (!entry.contact) {
+          validationErrors.push(`Row ${index + 1}: Contact number is required`);
+        }
+        if (!entry.address) {
+          validationErrors.push(`Row ${index + 1}: Address is required`);
         }
       });
 
@@ -431,7 +416,7 @@
       }
 
       // Confirm before proceeding
-      if (!confirm(`Are you sure you want to register ${data.length} user(s)? Account credentials will be sent to their email addresses.`)) {
+      if (!confirm(`Are you sure you want to register ${data.length} resident(s)? Account credentials will be sent to their email addresses.`)) {
         return;
       }
 
@@ -470,7 +455,7 @@
       progressText.textContent = `Processing ${i + 1} of ${data.length}: ${entry.email}`;
 
       try {
-        const result = await registerUser(entry);
+        const result = await registerResident(entry);
         results.success.push({
           email: entry.email,
           name: entry.fullName,
@@ -498,14 +483,14 @@
 
     // Reset UI
     submitBtn.disabled = false;
-    submitBtn.textContent = 'REGISTER ALL USERS';
+    submitBtn.textContent = 'REGISTER ALL RESIDENTS';
     progressText.textContent = `Completed: ${results.success.length} successful, ${results.errors.length} failed`;
   }
 
   /**
-   * Register a single user
+   * Register a single resident
    */
-  async function registerUser(entry) {
+  async function registerResident(entry) {
     const { createUserWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
     const { doc, setDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
 
@@ -519,33 +504,31 @@
     const userCredential = await createUserWithEmailAndPassword(auth, entry.email, password);
     const user = userCredential.user;
 
-    // Prepare user data for Firestore
-    const userData = {
+    // Prepare resident data for Firestore
+    const residentData = {
       uid: user.uid,
       email: entry.email,
-      authEmail: entry.email,
-      role: entry.role,
-      fullName: entry.fullName,
-      age: entry.age,
-      createdAt: serverTimestamp(),
-      status: 'active'
+      firstName: entry.firstName || '',
+      middleName: entry.middleName || '',
+      lastName: entry.lastName || '',
+      gender: entry.gender || '',
+      birthDate: entry.birthDate || '',
+      mobileNumber: entry.contact || '',
+      contact: entry.contact || '',
+      homeAddress: entry.address || '',
+      address: entry.address || '',
+      status: 'active',
+      approvedAt: serverTimestamp(),
+      approvedBy: localStorage.getItem('iSagip_userUID') || '',
+      createdAt: serverTimestamp()
     };
 
-    // Add responder type if role is responder
-    if (entry.role === 'responder' && entry.responderType) {
-      userData.responderType = entry.responderType;
-    }
-
-    // Save to Firestore
-    if (entry.role === 'responder') {
-      await setDoc(doc(db, 'responder', user.uid), userData);
-    } else {
-      await setDoc(doc(db, 'staff', user.uid), userData);
-    }
+    // Save to Firestore residents collection
+    await setDoc(doc(db, 'residents', user.uid), residentData);
 
     // Send email with credentials
     try {
-      await sendCredentialsEmail(entry.email, entry.fullName, password, entry.role);
+      await sendCredentialsEmail(entry.email, entry.fullName, password);
     } catch (emailError) {
       console.warn('Failed to send email for', entry.email, ':', emailError);
       // Don't fail the registration if email fails
@@ -557,7 +540,7 @@
   /**
    * Send credentials email via EmailJS
    */
-  async function sendCredentialsEmail(email, fullName, password, role) {
+  async function sendCredentialsEmail(email, fullName, password) {
     // Check if EmailJS is configured
     if (typeof emailjs === 'undefined') {
       console.warn('EmailJS is not available on this page. Email will not be sent.');
@@ -566,17 +549,15 @@
       console.log(`Name: ${fullName}`);
       console.log(`Email: ${email}`);
       console.log(`Password: ${password}`);
-      console.log(`Role: ${role}`);
       console.log(`=========================================`);
       // Store credentials in a global array for potential export
-      if (!window.registrationCredentials) {
-        window.registrationCredentials = [];
+      if (!window.residentRegistrationCredentials) {
+        window.residentRegistrationCredentials = [];
       }
-      window.registrationCredentials.push({
+      window.residentRegistrationCredentials.push({
         email: email,
         name: fullName,
-        password: password,
-        role: role
+        password: password
       });
       return;
     }
@@ -586,7 +567,7 @@
         to_email: email,
         to_name: fullName,
         password: password,
-        role: role,
+        role: 'resident',
         login_url: window.location.origin + '/index.html'
       };
 
@@ -654,17 +635,17 @@
    * Export credentials to CSV
    */
   function exportCredentialsCSV(credentials) {
-    let csv = 'Email,Full Name,Password,Role\n';
+    let csv = 'Email,Full Name,Password\n';
     
     credentials.forEach(cred => {
-      csv += `"${cred.email}","${cred.name}","${cred.password}","${cred.role}"\n`;
+      csv += `"${cred.email}","${cred.name}","${cred.password}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `isagip-credentials-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `isagip-resident-credentials-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -685,4 +666,3 @@
     return div.innerHTML;
   }
 })();
-

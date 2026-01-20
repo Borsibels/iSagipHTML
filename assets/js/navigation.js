@@ -65,19 +65,19 @@
   function shouldShowMenuItem(userRole, menuText) {
     const rolePermissions = {
       'admin': {
-        allowed: ['Registration', 'Resident Management', 'Settings'],
-        denied: ['Dashboard', 'Reports', 'Ambulance']
+        allowed: ['Registration', 'Resident Management', 'Settings', 'Dashboard', 'Reports', 'History', 'Ambulance'],
+        denied: []
       },
       'system_admin': {
-        allowed: ['Registration', 'Resident Management', 'Settings'],
-        denied: ['Dashboard', 'Reports', 'Ambulance']
+        allowed: ['Registration', 'Resident Management', 'Settings', 'Dashboard', 'Reports', 'History', 'Ambulance'],
+        denied: []
       },
       'barangay_staff': {
-        allowed: ['Dashboard', 'Reports', 'Ambulance', 'Settings'],
+        allowed: ['Dashboard', 'Reports', 'History', 'Ambulance', 'Settings'],
         denied: ['Registration', 'Resident Management']
       },
       'responder': {
-        allowed: ['Dashboard', 'Reports', 'Ambulance', 'Settings'],
+        allowed: ['Dashboard', 'Reports', 'History', 'Ambulance', 'Settings'],
         denied: ['Registration', 'Resident Management']
       },
       'live_viewer': {

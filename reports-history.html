@@ -3,46 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Received Reports</title>
+    <title>Resolved Reports History</title>
     <link rel="stylesheet" href="assets/css/styles.css" />
-    <style>
-      .btn-small.active {
-        background: var(--primary);
-        color: white;
-        border-color: var(--primary);
-      }
-      .btn-small.active:hover {
-        background: var(--primary-dark);
-        border-color: var(--primary-dark);
-      }
-      #responder-selection-container {
-        scrollbar-width: thin;
-        scrollbar-color: var(--outline) transparent;
-      }
-      #responder-selection-container::-webkit-scrollbar {
-        width: 8px;
-      }
-      #responder-selection-container::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      #responder-selection-container::-webkit-scrollbar-thumb {
-        background-color: var(--outline);
-        border-radius: 4px;
-      }
-      #responder-selection-container::-webkit-scrollbar-thumb:hover {
-        background-color: var(--muted);
-      }
-      #responder-checkboxes label {
-        user-select: none;
-      }
-      #responder-checkboxes label:hover {
-        background-color: #f3f6fb !important;
-      }
-      #responder-checkboxes input[type="checkbox"]:disabled + span {
-        color: var(--muted);
-        opacity: 0.6;
-      }
-    </style>
   </head>
   <body class="bg-app page-enter">
     <header class="topbar">
@@ -54,9 +16,9 @@
       <aside class="sidebar">
         <div class="sidebar-brand">iSagip Barangay Staff</div>
         <nav class="menu" id="sidebar-menu">
-          <a class="menu-item active" href="dashboard.html">Dashboard</a>
-          <a class="menu-item active" href="reports.html">Reports</a>
-          <a class="menu-item" href="reports-history.html">History</a>
+          <a class="menu-item" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item active" href="reports-history.html">History</a>
           <a class="menu-item" href="ambulance.html">Ambulance Status</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
           <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
@@ -68,63 +30,52 @@
 
       <main class="content">
         <section class="card">
-          <h3 class="section-title">Emergency Reports Dashboard</h3>
-          <div class="stats">
-            <div class="stat">
-              <div class="stat-title">Total Reports</div>
-              <div class="stat-value" id="r-total">0</div>
+          <h3 class="section-title">Resolved & Relayed Reports History</h3>
+          <p style="color: var(--muted); margin-bottom: 24px;">
+            View and search through all resolved and relayed emergency reports. These reports are automatically moved here once they are resolved or relayed. Use filters to find specific cases by date, type, or reporter.
+          </p>
+          
+          <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+            <input type="text" id="resolved-search" class="input" placeholder="Search by ID, type, description, or reporter..." style="flex: 1; min-width: 250px;" />
+            <select id="resolved-sort" class="input" style="width: 180px;">
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="response-time">Response Time (Fastest)</option>
+              <option value="response-time-slow">Response Time (Slowest)</option>
+            </select>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <label for="resolved-date-from" style="font-size: 12px; color: var(--muted); white-space: nowrap;">From:</label>
+              <input type="date" id="resolved-date-from" class="input" style="width: 150px;" />
             </div>
-            <div class="stat">
-              <div class="stat-title">Average Response Time</div>
-              <div class="stat-value" id="r-avg">0 min</div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <label for="resolved-date-to" style="font-size: 12px; color: var(--muted); white-space: nowrap;">To:</label>
+              <input type="date" id="resolved-date-to" class="input" style="width: 150px;" />
             </div>
-            <div class="stat">
-              <div class="stat-title">Resolved Cases</div>
-              <div class="stat-value" id="r-resolved">0</div>
-            </div>
-            <div class="stat">
-              <div class="stat-title">Active Cases</div>
-              <div class="stat-value" id="r-active">0</div>
-            </div>
-            <div class="stat">
-              <div class="stat-title">Export</div>
-              <button class="btn btn-outline" id="reports-export-csv">EXPORT TO CSV</button>
-            </div>
+            <button class="btn btn-outline btn-small" id="resolved-clear-filters">Clear Filters</button>
           </div>
-          <div class="section-actions" style="margin-top:12px;">
-            <button class="btn btn-primary" id="add-report-btn" hidden>+ Create Report</button>
-          </div>
-        </section>
-
-        <section class="card" style="overflow:auto;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 class="section-title" style="margin: 0;">Recent Reports</h3>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-outline btn-small" id="filter-active-btn">Active Only</button>
-              <button class="btn btn-outline btn-small active" id="filter-all-btn">All Reports</button>
-            </div>
-          </div>
+          
           <div class="table reports-table">
             <div class="t-head t-row">
               <div>ID</div>
               <div>Type</div>
               <div>Description</div>
-              <div>Status</div>
-              <div>Actions</div>
               <div>Street</div>
-              <div>Landmark</div>
-              <div>Lat</div>
-              <div>Lng</div>
-              <div>Photo</div>
-              <div>Timestamp</div>
-              <div>Resp. Time</div>
               <div>Reported By</div>
               <div>Closed By</div>
-              <div>Updated By</div>
-              <div>Updated At</div>
-              <div>Notes</div>
+              <div>Response Time</div>
+              <div>Resolved At</div>
+              <div>Actions</div>
             </div>
-            <div class="t-body" id="reports-rows"></div>
+            <div class="t-body" id="resolved-reports-rows">
+              <div class="t-row">
+                <div style="grid-column:1/-1;text-align:center;padding:1.5rem;color:var(--muted);">
+                  Loading resolved and relayed reports...
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="resolved-empty" style="display: none; text-align: center; padding: 2rem; color: var(--muted);">
+            No resolved or relayed reports found.
           </div>
         </section>
       </main>
@@ -150,14 +101,6 @@
                 <label>
                   <span>Status</span>
                   <input id="details-status" class="input" readonly />
-                </label>
-                <label>
-                  <span>Assigned Responder</span>
-                  <input id="details-assigned-responder" class="input" readonly />
-                </label>
-                <label>
-                  <span>Assigned Vehicle</span>
-                  <input id="details-assigned-vehicle" class="input" readonly />
                 </label>
                 <label>
                   <span>Emergency Type</span>
@@ -246,87 +189,6 @@
       </div>
     </div>
 
-    <!-- History Modal -->
-    <div class="modal" id="modal-history" hidden>
-      <div class="modal-dialog">
-        <div class="modal-header">
-          <div class="modal-title">Report Edit History</div>
-          <button class="modal-close" data-close>×</button>
-        </div>
-        <div class="modal-body">
-          <div class="table">
-            <div class="t-head t-row">
-              <div>Timestamp</div>
-              <div>Username</div>
-              <div>Action</div>
-              <div>Details</div>
-            </div>
-            <div class="t-body" id="history-rows"></div>
-          </div>
-        </div>
-        <div class="modal-footer"><button class="btn btn-outline" data-close>Close</button></div>
-      </div>
-    </div>
-
-    <!-- Manage Report Modal -->
-    <div class="modal" id="modal-manage-report" hidden>
-      <div class="modal-dialog">
-        <div class="modal-header">
-          <div class="modal-title" id="manage-title">Update Report</div>
-          <button class="modal-close" data-close>×</button>
-        </div>
-        <form class="modal-body" id="manage-report-form">
-          <input type="hidden" id="manage-report-id" />
-          <div class="form-grid">
-            <label>
-              <span>Status *</span>
-              <select class="input" id="manage-status" required>
-                <option value="received">Received</option>
-                <option value="assigned">Assigned</option>
-                <option value="relayed">Relayed</option>
-              </select>
-            </label>
-            <label style="grid-column: 1 / -1;">
-              <span>Assigned Responders</span>
-              <div id="responder-selection-container" style="border: 1px solid var(--outline); border-radius: 8px; background: var(--card); max-height: 200px; overflow-y: auto; padding: 8px;">
-                <div id="responder-checkboxes" style="display: grid; gap: 8px;">
-                  <!-- Responder checkboxes will be populated here -->
-                </div>
-                <div id="no-responders-message" style="padding: 16px; text-align: center; color: var(--muted); font-size: 14px; display: none; line-height: 1.5;">
-                  No active responders available
-                </div>
-              </div>
-              <small style="color: var(--muted); font-size: 12px; margin-top: 4px; display: block;">
-                Select one or more responders from the list above
-              </small>
-            </label>
-            <label>
-              <span>Assigned Vehicle</span>
-              <select class="input" id="manage-vehicle">
-                <option value="">Select an ambulance</option>
-              </select>
-            </label>
-            <label style="grid-column:1/-1;">
-              <span>Notes / Instructions</span>
-              <textarea class="input" id="manage-notes" rows="3" placeholder="Add details for the responders..."></textarea>
-            </label>
-          </div>
-        </form>
-        <div class="modal-footer">
-          <button class="btn btn-outline" data-close>Cancel</button>
-          <button class="btn btn-primary" form="manage-report-form" type="submit">Save Changes</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Notification Container -->
-    <div class="notification-container" id="notification-container"></div>
-    
-    <!-- Notification Sound Indicator -->
-    <div class="notification-sound-indicator" id="sound-indicator">
-      🔊 Notification sound played
-    </div>
-
     <!-- Firebase Initialization -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
@@ -361,10 +223,8 @@
     <script src="assets/js/utils.js"></script>
     <script src="assets/js/navigation.js"></script>
     <!-- Page-specific modules -->
-    <script src="assets/js/reports.js"></script>
+    <script src="assets/js/reports-history.js"></script>
     <!-- Legacy code (will be removed after cleanup) -->
     <script src="assets/js/script.js"></script>
   </body>
 </html>
-
-
