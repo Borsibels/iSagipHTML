@@ -19,16 +19,8 @@
     var filterPeriodEl = document.getElementById('filter-period');
     var filterMonthEl = document.getElementById('filter-month');
     var filterYearEl = document.getElementById('filter-year');
-    var ongoing = {
-      wrap: document.getElementById('ongoing-emergency'),
-      type: document.getElementById('ongoing-type'),
-      location: document.getElementById('ongoing-location'),
-      description: document.getElementById('ongoing-description'),
-      status: document.getElementById('ongoing-status'),
-      reportedAt: document.getElementById('reported-at'),
-      eta: document.getElementById('ongoing-eta')
-    };
-    if (!totalEl && !badgesEl && !avgEl && !ongoing.wrap) return;
+    var activeReportsListEl = document.getElementById('active-reports-list');
+    if (!totalEl && !badgesEl && !avgEl && !activeReportsListEl) return;
 
     var REALTIME_DB_URL = 'https://isagip-752d1-default-rtdb.asia-southeast1.firebasedatabase.app';
     var databaseModule = null;
@@ -304,13 +296,8 @@
             '<span class="badge badge-gray">Others: 0</span>'
           ].join(' ');
         }
-        if (ongoing.wrap) {
-          ongoing.type.textContent = '-';
-          ongoing.location.textContent = '-';
-          ongoing.description.textContent = '-';
-          ongoing.status.textContent = '-';
-          ongoing.reportedAt.textContent = '-';
-          ongoing.eta.textContent = '-';
+        if (activeReportsListEl) {
+          activeReportsListEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--muted);"><p style="margin: 0;">No active reports at the moment</p></div>';
         }
         return;
       }
@@ -335,24 +322,45 @@
       var avg = minutes.length ? Math.round(minutes.reduce(function(a,b){return a+b;},0) / minutes.length) : 0;
       if (avgEl) avgEl.textContent = (minutes.length ? (avg+' min') : '0 min');
 
-      if (ongoing.wrap) {
-        var active = source
-          .filter(function(r){ return (r.status || '').toString().toLowerCase() !== 'resolved'; })
-          .sort(function(a,b){ return b.timestampMs - a.timestampMs; })[0];
-        if (active) {
-          ongoing.type.textContent = active.type || '-';
-          ongoing.location.textContent = active.street || '-';
-          ongoing.description.textContent = active.description || '-';
-          ongoing.status.textContent = formatStatusText(active.status || '');
-          ongoing.reportedAt.textContent = active.timestampLabel || '-';
-          ongoing.eta.textContent = '-';
+      // Update Active Reports List
+      if (activeReportsListEl) {
+        var activeReports = source
+          .filter(function(r){ 
+            var status = (r.status || '').toString().toLowerCase();
+            return status !== 'resolved' && status !== 'relayed';
+          })
+          .sort(function(a,b){ return b.timestampMs - a.timestampMs; })
+          .slice(0, 10); // Show top 10 most recent active reports
+
+        if (activeReports.length === 0) {
+          activeReportsListEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--muted);"><p style="margin: 0;">No active reports at the moment</p></div>';
         } else {
-          ongoing.type.textContent = '-';
-          ongoing.location.textContent = '-';
-          ongoing.description.textContent = '-';
-          ongoing.status.textContent = '-';
-          ongoing.reportedAt.textContent = '-';
-          ongoing.eta.textContent = '-';
+          var html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+          activeReports.forEach(function(report) {
+            var statusColor = '#64748b';
+            var status = (report.status || '').toString().toLowerCase();
+            if (status === 'urgent' || status === 'responding') statusColor = '#ef4444';
+            else if (status === 'assigned' || status === 'accepted') statusColor = '#f59e0b';
+            else if (status === 'en_route' || status === 'arrived') statusColor = '#10b981';
+            
+            html += '<div style="padding: 16px; border: 1px solid var(--outline); border-radius: 8px; background: var(--surface); transition: all 0.2s;">';
+            html += '<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">';
+            html += '<div style="flex: 1;">';
+            html += '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">';
+            html += '<strong style="color: var(--text); font-size: 15px;">' + (report.type || 'Emergency') + '</strong>';
+            html += '<span style="padding: 2px 8px; background: ' + statusColor + '; color: white; border-radius: 4px; font-size: 11px; font-weight: 500; text-transform: uppercase;">' + formatStatusText(report.status || '') + '</span>';
+            html += '</div>';
+            html += '<p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.4;">' + (report.description || report.landmark || 'No description') + '</p>';
+            html += '</div>';
+            html += '</div>';
+            html += '<div style="display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--muted);">';
+            html += '<span>📍 ' + (report.street || report.address || 'Location not specified') + '</span>';
+            html += '<span>🕐 ' + (report.timestampLabel || 'Time unknown') + '</span>';
+            html += '</div>';
+            html += '</div>';
+          });
+          html += '</div>';
+          activeReportsListEl.innerHTML = html;
         }
       }
     }

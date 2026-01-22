@@ -64,17 +64,11 @@
           <div id="map" class="map-canvas" aria-label="Emergency Locations Map"></div>
         </section>
 
-        <section class="card draggable resizable" data-card-id="ongoing-card">
-          <h3 class="section-title">🚑 Ongoing Emergency Response</h3>
-          <div class="ongoing" id="ongoing-emergency">
-            <div class="ongoing-illustration" aria-hidden="true">🚑</div>
-            <div class="ongoing-details">
-              <div class="row"><span class="key">Type:</span><span class="val" id="ongoing-type">-</span></div>
-              <div class="row"><span class="key">Location:</span><span class="val" id="ongoing-location">-</span></div>
-              <div class="row"><span class="key">Description:</span><span class="val" id="ongoing-description">-</span></div>
-              <div class="row"><span class="key">Status:</span><span class="val" id="ongoing-status">-</span></div>
-              <div class="row"><span class="key">Reported At:</span><span class="val" id="reported-at">-</span></div>
-              <div class="eta">Estimated Time of Arrival: <strong id="ongoing-eta">-</strong></div>
+        <section class="card draggable resizable" data-card-id="active-reports-card">
+          <h3 class="section-title">📋 Active Reports</h3>
+          <div id="active-reports-list" style="max-height: 500px; overflow-y: auto;">
+            <div style="text-align: center; padding: 40px 20px; color: var(--muted);">
+              <p style="margin: 0;">No active reports at the moment</p>
             </div>
           </div>
         </section>

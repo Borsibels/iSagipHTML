@@ -454,7 +454,7 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 .settings-header p { margin: 0; color: var(--muted); font-size: 14px; }
 .settings-item { border-bottom: 1px solid var(--outline); padding: 16px 0; }
 .settings-item:last-child { border-bottom: none; }
-.settings-item-content { display: flex; align-items: center; justify-content: space-between; }
+.settings-item-content { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
 .settings-item-info h3 { margin: 0 0 4px; font-size: 16px; color: var(--text); }
 .settings-item-info p { margin: 0; color: var(--muted); font-size: 14px; }
 

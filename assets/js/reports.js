@@ -973,34 +973,64 @@
       noRespondersMessage.style.display = 'none';
       responderCheckboxesContainer.style.display = 'grid';
       
+      // Check which responders are already assigned to active reports
+      const occupiedResponderUids = new Set();
+      if (databaseModule && realtimeDb && rawReports) {
+        const activeStatuses = ['received', 'assigned', 'accepted', 'responding', 'en_route', 'arrived'];
+        const currentReportId = manageReportIdInput?.value;
+        
+        Object.keys(rawReports).forEach(reportKey => {
+          // Skip the current report being edited
+          if (reportKey === currentReportId) return;
+          
+          const report = rawReports[reportKey];
+          const reportStatus = (report.status || '').toLowerCase();
+          
+          // Only check active reports
+          if (activeStatuses.includes(reportStatus)) {
+            const assignedUids = report.assignedResponderUids || 
+                               (report.assignedResponderUid ? [report.assignedResponderUid] : []);
+            assignedUids.forEach(uid => occupiedResponderUids.add(uid));
+          }
+        });
+      }
+      
       // Create checkbox for each available responder
       availableResponders.forEach(function(uid) {
         const responder = respondersMap[uid] || {};
         const onlineData = onlineRespondersMap[uid] || 
           Object.values(onlineRespondersMap).find(r => r.responderId === uid);
+        const isOccupied = occupiedResponderUids.has(uid);
         
         const checkboxWrapper = document.createElement('label');
         checkboxWrapper.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background-color 0.2s;';
-        checkboxWrapper.style.cursor = 'pointer';
-        checkboxWrapper.onmouseover = function() { this.style.backgroundColor = '#f3f6fb'; };
-        checkboxWrapper.onmouseout = function() { this.style.backgroundColor = 'transparent'; };
+        if (isOccupied) {
+          checkboxWrapper.style.opacity = '0.6';
+          checkboxWrapper.style.cursor = 'not-allowed';
+          checkboxWrapper.title = 'This responder is already assigned to an active report';
+        } else {
+          checkboxWrapper.style.cursor = 'pointer';
+          checkboxWrapper.onmouseover = function() { this.style.backgroundColor = '#f3f6fb'; };
+          checkboxWrapper.onmouseout = function() { this.style.backgroundColor = 'transparent'; };
+        }
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.value = uid;
-        checkbox.checked = currentSelected.includes(uid);
-        checkbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);';
+        checkbox.checked = currentSelected.includes(uid) && !isOccupied;
+        checkbox.disabled = isOccupied;
+        checkbox.style.cssText = 'width: 18px; height: 18px; cursor: ' + (isOccupied ? 'not-allowed' : 'pointer') + '; accent-color: var(--primary);';
         
         const label = document.createElement('span');
         const responderName = responder.name || onlineData?.name || uid;
-        label.textContent = responderName;
+        label.textContent = responderName + (isOccupied ? ' (Occupied)' : '');
         label.style.cssText = 'font-size: 14px; color: var(--text); flex: 1;';
         
         // Add online indicator badge
         const onlineBadge = document.createElement('span');
         onlineBadge.textContent = '●';
-        onlineBadge.style.cssText = 'color: #10b981; font-size: 12px; margin-left: 4px;';
-        onlineBadge.title = 'Online - Responder app is open';
+        onlineBadge.style.cssText = 'color: ' + (isOccupied ? '#ef4444' : '#10b981') + '; font-size: 12px; margin-left: 4px;';
+        onlineBadge.title = isOccupied ? 'Occupied - Already assigned to an active report' : 'Online - Responder app is open';
         
         checkboxWrapper.appendChild(checkbox);
         checkboxWrapper.appendChild(label);
@@ -1265,11 +1295,86 @@
       const assignedVehicle = assignmentBlocked ? '' : manageVehicleInput.value.trim();
       
       // Get all selected responders from checkboxes
-      const selectedResponderUids = assignmentBlocked
+      let selectedResponderUids = assignmentBlocked
         ? []
         : Array.from(responderCheckboxesContainer.querySelectorAll('input[type="checkbox"]:checked'))
             .map(checkbox => checkbox.value)
             .filter(uid => uid && uid.trim() !== '');
+
+      // Check if any selected responders are already assigned to active reports
+      if (!assignmentBlocked && selectedResponderUids.length > 0) {
+        const { get, ref: dbRef } = databaseModule;
+        const reportsRef = dbRef(realtimeDb, 'reports');
+        
+        try {
+          const reportsSnapshot = await get(reportsRef);
+          const occupiedResponders = [];
+          
+          if (reportsSnapshot.exists()) {
+            const reports = reportsSnapshot.val();
+            const activeStatuses = ['received', 'assigned', 'accepted', 'responding', 'en_route', 'arrived'];
+            
+            // Check each report
+            Object.keys(reports).forEach(reportKey => {
+              // Skip the current report being edited
+              if (reportKey === reportId) return;
+              
+              const report = reports[reportKey];
+              const reportStatus = (report.status || '').toLowerCase();
+              
+              // Only check active reports (not resolved or relayed)
+              if (activeStatuses.includes(reportStatus)) {
+                const assignedUids = report.assignedResponderUids || 
+                                   (report.assignedResponderUid ? [report.assignedResponderUid] : []);
+                
+                // Check if any selected responder is already assigned to this active report
+                selectedResponderUids.forEach(selectedUid => {
+                  if (assignedUids.includes(selectedUid)) {
+                    const responderName = respondersMap[selectedUid]?.name || selectedUid;
+                    const existingReportId = report.reportId || reportKey;
+                    if (!occupiedResponders.find(r => r.uid === selectedUid)) {
+                      occupiedResponders.push({
+                        uid: selectedUid,
+                        name: responderName,
+                        reportId: existingReportId
+                      });
+                    }
+                  }
+                });
+              }
+            });
+          }
+          
+          // Filter out occupied responders
+          if (occupiedResponders.length > 0) {
+            const occupiedNames = occupiedResponders.map(r => r.name).join(', ');
+            const occupiedUids = occupiedResponders.map(r => r.uid);
+            
+            // Remove occupied responders from selection
+            selectedResponderUids = selectedResponderUids.filter(uid => !occupiedUids.includes(uid));
+            
+            // Uncheck occupied responders in the UI
+            occupiedUids.forEach(uid => {
+              const checkbox = responderCheckboxesContainer.querySelector(`input[type="checkbox"][value="${uid}"]`);
+              if (checkbox) {
+                checkbox.checked = false;
+              }
+            });
+            
+            // Show warning message
+            alert(`The following responder(s) are already assigned to an active report and cannot be assigned:\n\n${occupiedNames}\n\nThey have been removed from the selection.`);
+            
+            // If all responders were occupied, prevent submission
+            if (selectedResponderUids.length === 0) {
+              alert('No available responders selected. Please select responders who are not currently assigned to another active report.');
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error checking responder availability:', error);
+          // Continue with assignment if check fails (don't block assignment due to check error)
+        }
+      }
 
       // Auto-set status to "assigned" when responders are selected while status is "received"
       let effectiveStatus = normalizedStatus;

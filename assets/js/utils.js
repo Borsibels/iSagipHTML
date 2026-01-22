@@ -305,7 +305,15 @@
       if (!Array.isArray(items)) return;
       reportMarkers.forEach(function (m) { m.setMap(null); });
       reportMarkers = [];
-      items.forEach(function (r) {
+      
+      // Filter out resolved reports for markers (but keep them for heatmaps)
+      var activeReports = items.filter(function (r) {
+        var status = (r.status || '').toLowerCase();
+        return status !== 'resolved' && status !== 'relayed';
+      });
+      
+      // Create markers only for active (non-resolved) reports
+      activeReports.forEach(function (r) {
         var lat = parseFloat(r.latitude ?? r.lat);
         var lng = parseFloat(r.longitude ?? r.lng);
         if (!isFinite(lat) || !isFinite(lng)) return;
@@ -334,7 +342,7 @@
         reportMarkers.push(marker);
       });
       
-      // Update heatmaps when markers are updated
+      // Update heatmaps with ALL reports (including resolved) to keep hotspot colors
       updateHeatmaps(items);
     };
     if (Array.isArray(window.iSagipPendingMarkersData)) {

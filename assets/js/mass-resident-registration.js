@@ -9,7 +9,7 @@
   // Initialize EmailJS (you'll need to set your public key)
   const EMAILJS_PUBLIC_KEY = 'HdfCtAM1oRBEUuyy9'; // Same as staff registration
   const EMAILJS_SERVICE_ID = 'service_c04v2hd'; // Same as staff registration
-  const EMAILJS_TEMPLATE_ID = 'template_gyywi28'; // You can use the same template or create a new one
+  const EMAILJS_TEMPLATE_ID = 'template_36nko5r'; // Use the same template as staff/responder registration
 
   // Initialize EmailJS if public key is set
   if (EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY' && typeof emailjs !== 'undefined') {
@@ -567,7 +567,7 @@
         to_email: email,
         to_name: fullName,
         password: password,
-        role: 'resident',
+        role: 'Resident',
         login_url: window.location.origin + '/index.html'
       };
 
