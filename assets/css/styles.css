@@ -312,10 +312,32 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 .reports-table .t-row > div a[href*="http"]:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 
 /* Reports table column sizing */
-.reports-table .t-row { grid-template-columns: 250px 180px 240px 120px 160px 160px 120px 120px 120px 200px 200px 120px 160px 140px 160px 200px 220px; }
+.reports-table .t-row { grid-template-columns: 250px 180px 240px 120px 200px 160px 120px 120px 120px 200px 200px 120px 160px 140px 160px 200px 220px; }
 .reports-table .t-body .t-row > div { align-self: start; }
-.reports-table .reports-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.reports-table .reports-actions .btn { padding: 6px 10px; font-size: 12px; }
+.reports-table .reports-actions { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 6px; 
+  width: 100%;
+  min-width: 180px;
+  align-items: start;
+  overflow: visible;
+}
+.reports-table .reports-actions .btn { 
+  padding: 6px 10px; 
+  font-size: 12px; 
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: visible;
+  text-overflow: clip;
+}
+/* View All button stays in grid (beside Delete) */
+/* Empty div placeholder for grid alignment */
+.reports-table .reports-actions > div:empty {
+  display: none;
+}
 .reports-table .history { font-size: 12px; text-align: center; }
 
 /* Fix text overflow in reports table columns */
@@ -325,6 +347,12 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
   white-space: nowrap;
   min-width: 0;
   word-break: break-word;
+}
+
+/* Actions column should allow overflow for buttons */
+.reports-table .t-row > div:nth-child(5) { /* Actions column */
+  overflow: visible;
+  white-space: normal;
 }
 
 /* Allow wrapping for description and notes columns */
@@ -352,16 +380,60 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 
 /* Ensure ID column has proper spacing and doesn't overflow */
 .reports-table .t-row > div:first-child {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0; /* Allow flex item to shrink */
   cursor: help;
   font-size: 13px;
   letter-spacing: 0.3px;
 }
 
+/* ID text should truncate, but badge should always be visible */
+.reports-table .t-row > div:first-child .report-id-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0; /* Allow text to shrink */
+  flex: 1; /* Take available space */
+}
+
+/* Badge should never be cut off */
+.reports-table .t-row > div:first-child .badge-orange {
+  flex-shrink: 0; /* Never shrink the badge */
+  white-space: nowrap;
+}
+
 /* Allow Actions column to wrap buttons */
 .reports-table .t-row > div:nth-child(10) { /* Actions */
+  white-space: normal;
+  overflow: visible;
+}
+
+/* History table specific column sizing (9 columns) */
+.reports-history-table .t-row {
+  grid-template-columns: 200px 150px 1fr 180px 150px 140px 120px 180px 140px;
+}
+
+/* Allow description to wrap in history table */
+.reports-history-table .t-row > div:nth-child(3) { /* Description */
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 200px;
+}
+
+/* Allow ID column to show full text with ellipsis in history */
+.reports-history-table .t-row > div:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
+  font-size: 13px;
+}
+
+/* Allow Actions column to wrap buttons in history */
+.reports-history-table .t-row > div:nth-child(9) { /* Actions */
   white-space: normal;
   overflow: visible;
 }
@@ -372,6 +444,7 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 }
 @media (max-width: 900px) {
   .reports-table .t-row { min-width: 1200px; }
+  .reports-history-table .t-row { min-width: 1000px; }
   .res-table .t-row { min-width: 720px; }
 }
 

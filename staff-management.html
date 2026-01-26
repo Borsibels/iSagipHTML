@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staff Management</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body class="bg-app">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip System Administrator</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="reports-history.html">History</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item active" href="staff-management.html">Staff Management</a>
+          <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
+          <a class="menu-item" href="mass-register-residents.html">Mass Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <!-- Responders Section -->
+        <section class="card" id="responders-section">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+            <h3 class="section-title" style="margin: 0;">Responder Management</h3>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-outline btn-small active" id="tab-responders">Responders</button>
+              <button class="btn btn-outline btn-small" id="tab-staff">Barangay Staff</button>
+            </div>
+          </div>
+          <p style="color: var(--muted); font-size: 14px; margin: -8px 0 16px;">
+            Manage responder accounts. Edit information and update account status.
+          </p>
+          <div class="filters" style="align-items:end;">
+            <label style="flex:1;">
+              <span>Search Responders</span>
+              <input id="responders-search" class="input" type="search" placeholder="Search by name or email" />
+            </label>
+            <label>
+              <span>Status Filter</span>
+              <select id="responders-status" class="input">
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table res-table" style="margin-top:8px;">
+            <div class="t-head t-row">
+              <div>Name</div>
+              <div>Email</div>
+              <div>Responder Type</div>
+              <div>Age</div>
+              <div>Status</div>
+              <div>Actions</div>
+            </div>
+            <div class="t-body" id="responders-list"></div>
+          </div>
+          <div id="responders-empty" style="text-align: center; padding: 2rem; color: var(--muted); display: none;">
+            No responders found.
+          </div>
+        </section>
+
+        <!-- Barangay Staff Section -->
+        <section class="card" id="staff-section" hidden>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+            <h3 class="section-title" style="margin: 0;">Barangay Staff Management</h3>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-outline btn-small" id="tab-staff-2">Responders</button>
+              <button class="btn btn-outline btn-small active" id="tab-staff-3">Barangay Staff</button>
+            </div>
+          </div>
+          <p style="color: var(--muted); font-size: 14px; margin: -8px 0 16px;">
+            Manage barangay staff accounts. Edit information and update account status.
+          </p>
+          <div class="filters" style="align-items:end;">
+            <label style="flex:1;">
+              <span>Search Staff</span>
+              <input id="staff-search" class="input" type="search" placeholder="Search by name or email" />
+            </label>
+            <label>
+              <span>Status Filter</span>
+              <select id="staff-status" class="input">
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table res-table" style="margin-top:8px;">
+            <div class="t-head t-row">
+              <div>Name</div>
+              <div>Email</div>
+              <div>Role</div>
+              <div>Age</div>
+              <div>Status</div>
+              <div>Actions</div>
+            </div>
+            <div class="t-body" id="staff-list"></div>
+          </div>
+          <div id="staff-empty" style="text-align: center; padding: 2rem; color: var(--muted); display: none;">
+            No staff found.
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Edit Staff/Responder Modal -->
+    <div class="modal" id="edit-modal" hidden>
+      <div class="modal-dialog" style="max-width:700px;">
+        <div class="modal-header">
+          <div class="modal-title" id="edit-modal-title">Edit Staff</div>
+          <button class="modal-close" data-close>×</button>
+        </div>
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          <!-- Personal Information -->
+          <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Personal Information</h4>
+          <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+            <label>
+              <span>Email</span>
+              <input id="edit-email" class="input" type="email" />
+            </label>
+            <label>
+              <span>First Name</span>
+              <input id="edit-firstname" class="input" />
+            </label>
+            <label>
+              <span>Middle Name</span>
+              <input id="edit-middlename" class="input" />
+            </label>
+            <label>
+              <span>Last Name</span>
+              <input id="edit-lastname" class="input" />
+            </label>
+            <label>
+              <span>Age</span>
+              <input id="edit-age" class="input" type="number" min="18" max="100" />
+            </label>
+            <label>
+              <span>Status</span>
+              <select id="edit-status" class="input">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label id="edit-responder-type-label" style="display: none;">
+              <span>Responder Type</span>
+              <select id="edit-responder-type" class="input">
+                <option value="">Select type</option>
+                <option value="Medical">Medical</option>
+                <option value="Fire">Fire</option>
+                <option value="Police">Police</option>
+                <option value="Rescue">Rescue</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+            <label id="edit-role-label" style="display: none;">
+              <span>Role</span>
+              <select id="edit-role" class="input">
+                <option value="barangay_staff">Barangay Staff</option>
+                <option value="admin">Admin</option>
+                <option value="system_admin">System Admin</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-close>Cancel</button>
+          <button class="btn btn-primary" id="save-staff">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
+        authDomain: "isagip-752d1.firebaseapp.com",
+        projectId: "isagip-752d1",
+        storageBucket: "isagip-752d1.firebasestorage.app",
+        messagingSenderId: "193473482801",
+        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
+        measurementId: "G-XBKHVXJYB6"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+      
+      // Dispatch event to signal Firebase is ready
+      window.dispatchEvent(new Event('firebaseReady'));
+    </script>
+    
+    <!-- Core modules (load in order) -->
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/navigation.js"></script>
+    <!-- Page-specific modules -->
+    <script src="assets/js/staff-management.js"></script>
+    <!-- Legacy code (will be removed after cleanup) -->
+    <script src="assets/js/script.js"></script>
+    
+    <style>
+      #tab-responders.active,
+      #tab-staff.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+      }
+      #tab-responders.active:hover,
+      #tab-staff.active:hover {
+        background: var(--primary-dark);
+        border-color: var(--primary-dark);
+      }
+    </style>
+  </body>
+</html>

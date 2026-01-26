@@ -104,12 +104,12 @@
     var realtimeDb = null;
     var ambulances = [];
     var rawAmbulances = {};
+    var rawReports = {}; // Store reports data to get street/lat/lng for assignments
     var responderLocations = {}; // keyed by responder uid -> {lat,lng,updatedAt,name}
 
     var ambulanceModal = document.getElementById('ambulance-modal');
     var ambulanceForm = document.getElementById('ambulance-form');
     var ambFormTitle = document.getElementById('amb-form-title');
-    var ambLocationInput = document.getElementById('amb-location');
     var ambReportIdInput = document.getElementById('amb-report-id');
     var ambReportTypeInput = document.getElementById('amb-report-type');
     var ambReportAddressInput = document.getElementById('amb-report-address');
@@ -201,12 +201,33 @@
         });
       }
       
-      // Update location from responder if available
+      // Update location from assignment: prefer street, then lat/lng if no street
       var finalLocation = raw.location || 'Central Station Garage';
       if (responderLocation) {
         finalLocation = responderLocation;
-      } else if (assignment && assignment.address) {
-        finalLocation = assignment.address;
+      } else if (assignment) {
+        var reportId = assignment.id || raw.assignmentId;
+        var reportData = null;
+        
+        // Try to get report data from reports database if assignment doesn't have street/lat/lng
+        if (reportId && rawReports && rawReports[reportId]) {
+          reportData = rawReports[reportId];
+        }
+        
+        // Prefer street address if available (from assignment or report data)
+        var street = assignment.street || (reportData ? (reportData.street || reportData.location || '') : '');
+        if (street && street.trim() !== '' && street !== 'N/A') {
+          finalLocation = street.trim();
+        } else if (assignment.address && assignment.address.trim() !== '' && assignment.address !== 'N/A') {
+          finalLocation = assignment.address;
+        } else {
+          // Use lat/lng if no street address (from assignment or report data)
+          var lat = assignment.latitude != null ? assignment.latitude : (reportData ? (parseFloat(reportData.latitude || reportData.lat) || null) : null);
+          var lng = assignment.longitude != null ? assignment.longitude : (reportData ? (parseFloat(reportData.longitude || reportData.lng) || null) : null);
+          if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
+            finalLocation = lat.toFixed(6) + ', ' + lng.toFixed(6);
+          }
+        }
       }
       
       // Use assigned responders if found, otherwise fall back to existing logic
@@ -240,7 +261,34 @@
       var reportId = assignment?.id || amb.assignmentId;
       if (!assignment && !amb.assignmentId) return '';
       var typeLabel = assignment?.type || 'Emergency Dispatch';
-      var address = assignment?.address || '';
+      
+      // Determine location: prefer street, then lat/lng if no street
+      var locationDisplay = '';
+      if (assignment) {
+        var reportId = assignment.id || amb.assignmentId;
+        var reportData = null;
+        
+        // Try to get report data from reports database if assignment doesn't have street/lat/lng
+        if (reportId && rawReports && rawReports[reportId]) {
+          reportData = rawReports[reportId];
+        }
+        
+        // Prefer street address (from assignment or report data)
+        var street = assignment.street || (reportData ? (reportData.street || reportData.location || '') : '');
+        if (street && street.trim() !== '' && street !== 'N/A') {
+          locationDisplay = street.trim();
+        } else if (assignment.address && assignment.address.trim() !== '' && assignment.address !== 'N/A') {
+          locationDisplay = assignment.address;
+        } else {
+          // Use lat/lng if no street (from assignment or report data)
+          var lat = assignment.latitude != null ? assignment.latitude : (reportData ? (parseFloat(reportData.latitude || reportData.lat) || null) : null);
+          var lng = assignment.longitude != null ? assignment.longitude : (reportData ? (parseFloat(reportData.longitude || reportData.lng) || null) : null);
+          if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
+            locationDisplay = lat.toFixed(6) + ', ' + lng.toFixed(6);
+          }
+        }
+      }
+      
       var responderNameMap = {};
       if (assignment && Array.isArray(assignment.responderUids) && Array.isArray(assignment.responders)) {
         assignment.responderUids.forEach(function(uid, index) {
@@ -269,7 +317,7 @@
             '<span class="amb-pill">'+typeLabel+'</span>'+
           '</div>'+
           '<p><strong>Report ID:</strong> '+(reportId || 'Pending')+'</p>'+
-          (address ? '<p><strong>Location:</strong> '+address+'</p>' : '')+
+          (locationDisplay ? '<p><strong>Location:</strong> '+locationDisplay+'</p>' : '')+
           '<details class="amb-responders">'+
             '<summary>Responders'+(responders.length ? ' ('+responders.length+')' : '')+'</summary>'+
             '<ul>'+
@@ -370,8 +418,8 @@
       try {
         await persistAmbulanceStatus(amb.id, newStatus);
       } catch (error) {
-        console.error('Failed to update ambulance status:', error);
-        alert('Unable to update ambulance status. Please try again.');
+        console.error('Failed to update vehicle status:', error);
+        alert('Unable to update vehicle status. Please try again.');
       }
     });
     
@@ -461,6 +509,24 @@
           }
         );
 
+        // Subscribe to reports data to get street/lat/lng for assignments
+        var reportsRef = ref(realtimeDb, 'reports');
+        onValue(
+          reportsRef,
+          function(snapshot) {
+            var value = snapshot.val() || {};
+            rawReports = value;
+            // Re-map ambulances to include report data in assignments
+            ambulances = Object.keys(rawAmbulances).map(function(key) {
+              return mapAmbulance(key, rawAmbulances[key] || {});
+            });
+            render();
+          },
+          function(error) {
+            console.error('Reports realtime error:', error);
+          }
+        );
+
         // Subscribe to responder data (responders/{responderId} structure)
         var respondersRef = ref(realtimeDb, 'responders');
         onValue(
@@ -507,10 +573,37 @@
       ambulanceModal.dataset.ambId = amb.id;
       if (ambFormTitle) ambFormTitle.textContent = amb.name + ' Details';
       var assignment = amb.assignment || {};
-      // Update location from responder if available
+      // Update location: prefer street, then lat/lng if no street
       var displayLocation = amb.location || '';
       var reportId = assignment.id || amb.assignmentId || null;
-      if (reportId && responderLocations) {
+      
+      // First check assignment for street or lat/lng, fallback to report data
+      if (assignment) {
+        var reportData = null;
+        
+        // Try to get report data from reports database if assignment doesn't have street/lat/lng
+        if (reportId && rawReports && rawReports[reportId]) {
+          reportData = rawReports[reportId];
+        }
+        
+        // Prefer street address (from assignment or report data)
+        var street = assignment.street || (reportData ? (reportData.street || reportData.location || '') : '');
+        if (street && street.trim() !== '' && street !== 'N/A') {
+          displayLocation = street.trim();
+        } else if (assignment.address && assignment.address.trim() !== '' && assignment.address !== 'N/A') {
+          displayLocation = assignment.address;
+        } else {
+          // Use lat/lng if no street (from assignment or report data)
+          var lat = assignment.latitude != null ? assignment.latitude : (reportData ? (parseFloat(reportData.latitude || reportData.lat) || null) : null);
+          var lng = assignment.longitude != null ? assignment.longitude : (reportData ? (parseFloat(reportData.longitude || reportData.lng) || null) : null);
+          if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
+            displayLocation = lat.toFixed(6) + ', ' + lng.toFixed(6);
+          }
+        }
+      }
+      
+      // Fallback to responder location if no assignment location
+      if ((!displayLocation || displayLocation === 'Central Station Garage') && reportId && responderLocations) {
         var normalizedReportId = (reportId || '').toString().trim();
         // Find responder for this report
         Object.keys(responderLocations).forEach(function(responderId) {
@@ -528,10 +621,37 @@
           }
         });
       }
-      if (ambLocationInput) ambLocationInput.value = displayLocation;
+      
       if (ambReportIdInput) ambReportIdInput.value = (assignment.id || amb.assignmentId || '') || '';
       if (ambReportTypeInput) ambReportTypeInput.value = assignment.type || '';
-      if (ambReportAddressInput) ambReportAddressInput.value = assignment.address || '';
+      
+      // Show street in address field, or lat/lng if no street
+      var reportAddress = '';
+      if (assignment) {
+        var reportId = assignment.id || amb.assignmentId;
+        var reportData = null;
+        
+        // Try to get report data from reports database if assignment doesn't have street/lat/lng
+        if (reportId && rawReports && rawReports[reportId]) {
+          reportData = rawReports[reportId];
+        }
+        
+        // Prefer street address (from assignment or report data)
+        var street = assignment.street || (reportData ? (reportData.street || reportData.location || '') : '');
+        if (street && street.trim() !== '' && street !== 'N/A') {
+          reportAddress = street.trim();
+        } else if (assignment.address && assignment.address.trim() !== '' && assignment.address !== 'N/A') {
+          reportAddress = assignment.address;
+        } else {
+          // Use lat/lng if no street (from assignment or report data)
+          var lat = assignment.latitude != null ? assignment.latitude : (reportData ? (parseFloat(reportData.latitude || reportData.lat) || null) : null);
+          var lng = assignment.longitude != null ? assignment.longitude : (reportData ? (parseFloat(reportData.longitude || reportData.lng) || null) : null);
+          if (lat != null && lng != null && isFinite(lat) && isFinite(lng)) {
+            reportAddress = lat.toFixed(6) + ', ' + lng.toFixed(6);
+          }
+        }
+      }
+      if (ambReportAddressInput) ambReportAddressInput.value = reportAddress;
       if (ambMaintNoteInput) ambMaintNoteInput.value = amb.maintenanceNote || '';
       if (ambMaintEtaInput) ambMaintEtaInput.value = formatInputDateTime(amb.maintenanceEta);
       if (ambResponderList) {
@@ -648,6 +768,60 @@
         alert('Unable to save ambulance details. Please try again.');
       }
     });
+
+    // Remove Vehicle functionality
+    var removeVehicleBtn = document.getElementById('remove-vehicle-btn');
+    if (removeVehicleBtn) {
+      removeVehicleBtn.addEventListener('click', async function() {
+        if (!ambulanceModal?.dataset.ambId) return;
+        var id = ambulanceModal.dataset.ambId;
+        var current = ambulances.find(function(a){ return String(a.id) === String(id); });
+        
+        if (!current) {
+          alert('Vehicle not found.');
+          return;
+        }
+
+        var vehicleName = current.name || id;
+        var isInUse = current.status === 'IN-USE';
+        
+        var confirmMessage = isInUse 
+          ? 'Warning: This vehicle is currently in use. Are you sure you want to remove it? This action cannot be undone.'
+          : 'Are you sure you want to remove "' + vehicleName + '"? This action cannot be undone.';
+        
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+
+        try {
+          await removeVehicle(id);
+          closeAmbulanceModal();
+          alert('Vehicle removed successfully!');
+        } catch (error) {
+          console.error('Failed to remove vehicle:', error);
+          alert('Unable to remove vehicle. Please try again.');
+        }
+      });
+    }
+
+    async function removeVehicle(vehicleId) {
+      if (!databaseModule || !realtimeDb) {
+        await waitForFirebaseApp();
+        if (!databaseModule) {
+          databaseModule = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js");
+        }
+        if (!realtimeDb) {
+          var getDatabase = databaseModule.getDatabase;
+          realtimeDb = getDatabase(window.iSagipApp, REALTIME_DB_URL);
+        }
+      }
+
+      var ref = databaseModule.ref;
+      var remove = databaseModule.remove;
+      
+      var vehicleRef = ref(realtimeDb, 'ambulances/' + vehicleId);
+      return remove(vehicleRef);
+    }
 
     // Add Vehicle functionality
     var addVehicleBtn = document.getElementById('add-vehicle-btn');

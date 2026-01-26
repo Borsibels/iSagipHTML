@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ambulance Status</title>
+    <title>Manage Vehicle</title>
     <link rel="stylesheet" href="assets/css/styles.css" />
   </head>
   <body class="bg-app page-enter">
@@ -19,8 +19,9 @@
           <a class="menu-item active" href="dashboard.html">Dashboard</a>
           <a class="menu-item" href="reports.html">Reports</a>
           <a class="menu-item" href="reports-history.html">History</a>
-          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="staff-management.html">Staff Management</a>
           <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
           <a class="menu-item" href="mass-register-residents.html">Mass Resident Registration</a>
           <a class="menu-item" href="register-resident.html">Resident Registration</a>
@@ -51,7 +52,7 @@
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;flex-wrap:wrap;gap:12px;">
-            <h3 class="section-title" style="margin:0;">Ambulance Status Management</h3>
+            <h3 class="section-title" style="margin:0;">Vehicle Management</h3>
             <button class="btn btn-primary" id="add-vehicle-btn" style="white-space:nowrap;">+ Add Vehicle</button>
           </div>
           <div class="ambulance-grid" id="ambulance-grid"></div>
@@ -111,10 +112,6 @@
             <div class="amb-form-section">
               <h4>General Details</h4>
               <div class="form-grid">
-                <label>
-                  <span class="label">Current Location</span>
-                  <input type="text" id="amb-location" class="input" placeholder="e.g., Central Station" readonly />
-                </label>
                 <div class="amb-responders-block" style="grid-column:1/-1;">
                   <details id="amb-responders-dropdown">
                     <summary>Responders</summary>
@@ -158,9 +155,12 @@
               </div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline" data-close>Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
+          <div class="modal-footer" style="display: flex; justify-content: space-between;">
+            <button type="button" class="btn btn-outline" id="remove-vehicle-btn" style="background: #ef4444; color: white; border-color: #ef4444;">Remove Vehicle</button>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-outline" data-close>Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
           </div>
         </form>
       </div>

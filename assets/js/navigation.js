@@ -63,9 +63,10 @@
    * @returns {boolean} - Whether the menu item should be visible
    */
   function shouldShowMenuItem(userRole, menuText) {
-    // Admin users should ONLY see: Resident Management, Mass Staff Registration, Mass Resident Registration, Settings
+    // Admin users should ONLY see: Resident Management, Staff Management, Mass Staff Registration, Mass Resident Registration, Settings
     if (userRole === 'admin') {
       return menuText.includes('Resident Management') || 
+             menuText.includes('Staff Management') ||
              menuText.includes('Mass Staff Registration') || 
              menuText.includes('Mass Resident Registration') || 
              menuText.includes('Settings');
@@ -78,20 +79,20 @@
 
     const rolePermissions = {
       'system_admin': {
-        allowed: ['Registration', 'Resident Management', 'Settings', 'Dashboard', 'Reports', 'History', 'Ambulance', 'Mass Staff Registration', 'Mass Resident Registration'],
+        allowed: ['Registration', 'Resident Management', 'Staff Management', 'Settings', 'Dashboard', 'Reports', 'History', 'Ambulance', 'Manage Vehicle', 'Vehicle', 'Mass Staff Registration', 'Mass Resident Registration'],
         denied: []
       },
       'barangay_staff': {
-        allowed: ['Dashboard', 'Reports', 'History', 'Ambulance', 'Settings'],
-        denied: ['Registration', 'Resident Management', 'Mass Staff Registration', 'Mass Resident Registration']
+        allowed: ['Dashboard', 'Reports', 'History', 'Ambulance', 'Manage Vehicle', 'Vehicle', 'Settings'],
+        denied: ['Registration', 'Resident Management', 'Staff Management', 'Mass Staff Registration', 'Mass Resident Registration']
       },
       'responder': {
-        allowed: ['Dashboard', 'Reports', 'History', 'Ambulance', 'Settings'],
-        denied: ['Registration', 'Resident Management', 'Mass Staff Registration', 'Mass Resident Registration']
+        allowed: ['Dashboard', 'Reports', 'History', 'Ambulance', 'Manage Vehicle', 'Vehicle', 'Settings'],
+        denied: ['Registration', 'Resident Management', 'Staff Management', 'Mass Staff Registration', 'Mass Resident Registration']
       },
       'live_viewer': {
         allowed: ['Reports Viewing', 'Settings'],
-        denied: ['Dashboard', 'Reports', 'Ambulance', 'Registration', 'Resident Management', 'Mass Staff Registration', 'Mass Resident Registration']
+        denied: ['Dashboard', 'Reports', 'Ambulance', 'Manage Vehicle', 'Vehicle', 'Registration', 'Resident Management', 'Staff Management', 'Mass Staff Registration', 'Mass Resident Registration']
       }
     };
 

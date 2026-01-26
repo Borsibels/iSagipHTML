@@ -80,19 +80,81 @@
               console.log('Admin found by email. Role:', userRole);
             });
           } else {
-            // Check staff collection
+            // Check staff collection - try by UID first
             const staffDoc = await getDoc(doc(db, 'staff', user.uid));
             if (staffDoc.exists()) {
               userData = staffDoc.data();
               userRole = userData.role || 'barangay_staff';
               console.log('Staff found. Role:', userRole);
+              
+              // Check if staff account is inactive
+              const status = userData.status || 'active';
+              if (status === 'inactive') {
+                // Sign out the user immediately
+                const { signOut } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+                await signOut(auth);
+                alert('Your account has been deactivated. Please contact your administrator.');
+                return;
+              }
             } else {
-              // Check responder collection
-              const responderDoc = await getDoc(doc(db, 'responder', user.uid));
-              if (responderDoc.exists()) {
-                userData = responderDoc.data();
-                userRole = userData.role || 'responder';
-                console.log('Responder found. Role:', userRole);
+              // Try searching by email in staff collection
+              const staffQuery = query(collection(db, 'staff'), where('email', '==', email));
+              const staffSnapshot = await getDocs(staffQuery);
+              
+              if (!staffSnapshot.empty) {
+                const staffDocData = staffSnapshot.docs[0].data();
+                userData = staffDocData;
+                userRole = userData.role || 'barangay_staff';
+                console.log('Staff found by email. Role:', userRole);
+                
+                // Check if staff account is inactive
+                const status = userData.status || 'active';
+                if (status === 'inactive') {
+                  // Sign out the user immediately
+                  const { signOut } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+                  await signOut(auth);
+                  alert('Your account has been deactivated. Please contact your administrator.');
+                  return;
+                }
+              } else {
+                // Check responder collection - try by UID
+                const responderDoc = await getDoc(doc(db, 'responder', user.uid));
+                if (responderDoc.exists()) {
+                  userData = responderDoc.data();
+                  userRole = userData.role || 'responder';
+                  console.log('Responder found. Role:', userRole);
+                  
+                  // Check if responder account is inactive
+                  const status = userData.status || 'active';
+                  if (status === 'inactive') {
+                    // Sign out the user immediately
+                    const { signOut } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+                    await signOut(auth);
+                    alert('Your account has been deactivated. Please contact your administrator.');
+                    return;
+                  }
+                } else {
+                  // Try searching by email in responder collection
+                  const responderQuery = query(collection(db, 'responder'), where('email', '==', email));
+                  const responderSnapshot = await getDocs(responderQuery);
+                  
+                  if (!responderSnapshot.empty) {
+                    const responderDocData = responderSnapshot.docs[0].data();
+                    userData = responderDocData;
+                    userRole = userData.role || 'responder';
+                    console.log('Responder found by email. Role:', userRole);
+                    
+                    // Check if responder account is inactive
+                    const status = userData.status || 'active';
+                    if (status === 'inactive') {
+                      // Sign out the user immediately
+                      const { signOut } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+                      await signOut(auth);
+                      alert('Your account has been deactivated. Please contact your administrator.');
+                      return;
+                    }
+                  }
+                }
               }
             }
           }
@@ -242,15 +304,17 @@
       return;
     }
 
-    // Optional: Verify Firebase Auth state (skip for live_viewer)
-    if (window.iSagipAuth) {
-      // Check auth state asynchronously
+    // Optional: Verify Firebase Auth state and account status (skip for live_viewer)
+    if (window.iSagipAuth && window.iSagipDb) {
+      // Check auth state and account status asynchronously
       (async () => {
         try {
           const { onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+          const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
           const auth = window.iSagipAuth;
+          const db = window.iSagipDb;
           
-          onAuthStateChanged(auth, (user) => {
+          onAuthStateChanged(auth, async (user) => {
             if (!user) {
               // User is not authenticated in Firebase
               // Skip this check for live_viewer role
@@ -258,6 +322,31 @@
               if (currentRole !== 'live_viewer') {
                 localStorage.clear();
                 window.location.replace('index.html');
+              }
+            } else {
+              // Check if user account is inactive (for staff and responders)
+              const currentRole = localStorage.getItem('iSagip_userRole');
+              if (currentRole === 'barangay_staff' || currentRole === 'responder') {
+                try {
+                  const collectionName = currentRole === 'barangay_staff' ? 'staff' : 'responder';
+                  const userDoc = await getDoc(doc(db, collectionName, user.uid));
+                  
+                  if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    const status = userData.status || 'active';
+                    
+                    if (status === 'inactive') {
+                      // Account is inactive, sign out and redirect
+                      const { signOut } = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js");
+                      await signOut(auth);
+                      localStorage.clear();
+                      alert('Your account has been deactivated. Please contact your administrator.');
+                      window.location.replace('index.html');
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error checking account status:', error);
+                }
               }
             }
           });

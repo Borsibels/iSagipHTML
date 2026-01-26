@@ -78,54 +78,23 @@
 
     // Apply search filter
     const searchTerm = (document.getElementById('resolved-search')?.value || '').toLowerCase();
-    let filtered = resolvedReports.filter(report => {
-      if (!searchTerm) return true;
-      const searchable = [
-        report.id,
-        report.type,
-        report.description,
-        report.reportedBy,
-        report.closedBy,
-        report.street
-      ].join(' ').toLowerCase();
-      return searchable.includes(searchTerm);
-    });
-
-    // Apply date range filter
-    const dateFrom = document.getElementById('resolved-date-from')?.value;
-    const dateTo = document.getElementById('resolved-date-to')?.value;
-    if (dateFrom || dateTo) {
-      filtered = filtered.filter(report => {
-        const reportDate = new Date(report.rawTimestamp);
-        if (dateFrom) {
-          const fromDate = new Date(dateFrom);
-          fromDate.setHours(0, 0, 0, 0);
-          if (reportDate < fromDate) return false;
-        }
-        if (dateTo) {
-          const toDate = new Date(dateTo);
-          toDate.setHours(23, 59, 59, 999);
-          if (reportDate > toDate) return false;
-        }
-        return true;
+    let filtered = resolvedReports;
+    if (searchTerm) {
+      filtered = resolvedReports.filter(report => {
+        const searchable = [
+          report.id,
+          report.type,
+          report.description,
+          report.reportedBy,
+          report.closedBy,
+          report.street
+        ].join(' ').toLowerCase();
+        return searchable.includes(searchTerm);
       });
     }
 
-    // Apply sorting
-    const sortBy = document.getElementById('resolved-sort')?.value || 'newest';
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'oldest':
-          return (a.rawTimestamp || 0) - (b.rawTimestamp || 0);
-        case 'response-time':
-          return (a.responseMinutes || Infinity) - (b.responseMinutes || Infinity);
-        case 'response-time-slow':
-          return (b.responseMinutes || -Infinity) - (a.responseMinutes || -Infinity);
-        case 'newest':
-        default:
-          return (b.rawTimestamp || 0) - (a.rawTimestamp || 0);
-      }
-    });
+    // Sort by newest first
+    filtered.sort((a, b) => (b.rawTimestamp || 0) - (a.rawTimestamp || 0));
 
     if (filtered.length === 0) {
       resolvedRows.innerHTML = '';
@@ -136,9 +105,21 @@
     if (resolvedEmpty) resolvedEmpty.style.display = 'none';
 
     resolvedRows.innerHTML = filtered.map(report => {
-      const closedAt = rawReports[report.id]?.closedAt 
-        ? new Date(Number(rawReports[report.id].closedAt)).toLocaleString()
+      // Get closedAt from raw report data
+      const rawReport = rawReports[report.id] || {};
+      const closedAtTimestamp = rawReport.closedAt ? Number(rawReport.closedAt) : null;
+      const closedAt = closedAtTimestamp 
+        ? new Date(closedAtTimestamp).toLocaleString()
         : report.lastUpdatedAt || '—';
+      
+      // Recalculate response time if we have the raw data
+      let responseTime = report.responseTime || '—';
+      if (responseTime === '—' && closedAtTimestamp && report.rawTimestamp) {
+        const minutes = Math.round((closedAtTimestamp - report.rawTimestamp) / 60000);
+        if (minutes >= 0) {
+          responseTime = `${minutes} min`;
+        }
+      }
 
       return `
         <div class="t-row" data-report-id="${report.id}">
@@ -146,9 +127,9 @@
           <div>${escapeHtml(report.type)}</div>
           <div>${escapeHtml(report.description)}</div>
           <div>${escapeHtml(report.street)}</div>
-          <div>${escapeHtml(report.reportedBy)}</div>
+          <div>${escapeHtml(report.reportedBy || '—')}</div>
           <div>${escapeHtml(report.closedBy || '—')}</div>
-          <div>${report.responseTime || '—'}</div>
+          <div>${responseTime}</div>
           <div>${closedAt}</div>
           <div>
             <button class="btn btn-small btn-outline" data-action="view-resolved-report" data-id="${report.id}">
@@ -172,40 +153,148 @@
   }
 
   /**
-   * Setup event listeners for filters and search
+   * Export resolved reports to CSV (respects search filter)
+   */
+  function exportResolvedReportsToCSV() {
+    // Get all resolved and relayed reports
+    const allResolved = reports.filter(r => {
+      const status = (r.status || '').toLowerCase();
+      return status === 'resolved' || status === 'relayed';
+    });
+
+    // Apply search filter if active
+    const searchTerm = (document.getElementById('resolved-search')?.value || '').toLowerCase();
+    let filtered = allResolved;
+    if (searchTerm) {
+      filtered = allResolved.filter(report => {
+        const searchable = [
+          report.id,
+          report.type,
+          report.description,
+          report.reportedBy,
+          report.closedBy,
+          report.street
+        ].join(' ').toLowerCase();
+        return searchable.includes(searchTerm);
+      });
+    }
+
+    if (!filtered.length) {
+      alert('No reports to export.');
+      return;
+    }
+
+    // Sort by newest first (same as display)
+    const sortedReports = filtered.sort((a, b) => (b.rawTimestamp || 0) - (a.rawTimestamp || 0));
+
+    // Get closedAt from raw report data for each report
+    const exportData = sortedReports.map(report => {
+      const rawReport = rawReports[report.id] || {};
+      const closedAtTimestamp = rawReport.closedAt ? Number(rawReport.closedAt) : null;
+      const closedAt = closedAtTimestamp 
+        ? new Date(closedAtTimestamp).toLocaleString()
+        : report.lastUpdatedAt || '—';
+      
+      // Recalculate response time if needed
+      let responseTime = report.responseTime || '—';
+      if (responseTime === '—' && closedAtTimestamp && report.rawTimestamp) {
+        const minutes = Math.round((closedAtTimestamp - report.rawTimestamp) / 60000);
+        if (minutes >= 0) {
+          responseTime = `${minutes} min`;
+        }
+      }
+
+      return {
+        id: report.id,
+        type: report.type,
+        description: (report.description || '').replace(/\n/g, ' ').replace(/"/g, '""'),
+        status: formatStatusLabel(report.status),
+        street: report.street || '',
+        landmark: report.landmark || '',
+        latitude: report.latitude != null ? report.latitude.toFixed(6) : '',
+        longitude: report.longitude != null ? report.longitude.toFixed(6) : '',
+        reportedBy: report.reportedBy || '',
+        closedBy: report.closedBy || '',
+        responseTime: responseTime,
+        resolvedAt: closedAt,
+        timestamp: report.timestamp
+      };
+    });
+
+    // Create CSV headers
+    const headers = [
+      'ID',
+      'Type',
+      'Description',
+      'Status',
+      'Street',
+      'Landmark',
+      'Latitude',
+      'Longitude',
+      'Reported By',
+      'Closed By',
+      'Response Time',
+      'Resolved At',
+      'Reported At'
+    ];
+
+    // Create CSV rows
+    const rows = exportData.map(r => [
+      r.id,
+      r.type,
+      r.description,
+      r.status,
+      r.street,
+      r.landmark,
+      r.latitude,
+      r.longitude,
+      r.reportedBy,
+      r.closedBy,
+      r.responseTime,
+      r.resolvedAt,
+      r.timestamp
+    ]);
+
+    // Generate CSV content
+    const csv = [headers].concat(rows).map(function(arr) {
+      return arr.map(function(cell, index) {
+        const val = cell === null || cell === undefined ? '' : String(cell);
+        // Format ID column to prevent Excel from removing leading zeros
+        // Prefix with tab character to force Excel to treat as text
+        if (index === 0 && val) {
+          return '="' + val.replace(/"/g, '""') + '"';
+        }
+        return /[",\n]/.test(val) ? '"' + val.replace(/"/g, '""') + '"' : val;
+      }).join(',');
+    }).join('\n');
+
+    // Add UTF-8 BOM to prevent Excel from auto-converting data
+    const BOM = '\uFEFF';
+    const csvWithBOM = BOM + csv;
+
+    // Download CSV file
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'resolved_reports_history_export_' + new Date().toISOString().split('T')[0] + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Setup event listeners
    */
   function setupFilters() {
+    // Export CSV button
+    document.getElementById('history-export-csv')?.addEventListener('click', function() {
+      exportResolvedReportsToCSV();
+    });
+
     // Search input
     document.getElementById('resolved-search')?.addEventListener('input', function() {
-      renderResolvedReports();
-    });
-
-    // Sort dropdown
-    document.getElementById('resolved-sort')?.addEventListener('change', function() {
-      renderResolvedReports();
-    });
-
-    // Date filters
-    document.getElementById('resolved-date-from')?.addEventListener('change', function() {
-      renderResolvedReports();
-    });
-
-    document.getElementById('resolved-date-to')?.addEventListener('change', function() {
-      renderResolvedReports();
-    });
-
-    // Clear filters button
-    document.getElementById('resolved-clear-filters')?.addEventListener('click', function() {
-      const searchInput = document.getElementById('resolved-search');
-      const sortSelect = document.getElementById('resolved-sort');
-      const dateFrom = document.getElementById('resolved-date-from');
-      const dateTo = document.getElementById('resolved-date-to');
-
-      if (searchInput) searchInput.value = '';
-      if (sortSelect) sortSelect.value = 'newest';
-      if (dateFrom) dateFrom.value = '';
-      if (dateTo) dateTo.value = '';
-
       renderResolvedReports();
     });
 
@@ -260,7 +349,7 @@
       : 'N/A';
     if (locationEl) locationEl.value = locationStr;
     
-    if (reportedByEl) reportedByEl.value = escapeHtml(report.reportedBy) || 'N/A';
+    if (reportedByEl) reportedByEl.value = escapeHtml(report.reportedBy || '—') || 'N/A';
     if (timestampEl) timestampEl.value = report.timestamp || 'N/A';
     if (responseTimeEl) responseTimeEl.value = report.responseTime || '—';
     if (closedByEl) closedByEl.value = escapeHtml(report.closedBy || '—');
@@ -314,13 +403,26 @@
   function mapReport(id, raw) {
     const timestamp = Number(raw.timestamp) || Date.now();
     const closedAt = Number(raw.closedAt) || null;
+    const lastUpdatedAt = Number(raw.lastUpdatedAt) || null;
 
-    const responseMinutes =
-      typeof raw.responseTimeMinutes === 'number'
-        ? raw.responseTimeMinutes
-        : closedAt
-        ? Math.round((closedAt - timestamp) / 60000)
-        : null;
+    // Calculate response time - use closedAt if available, otherwise lastUpdatedAt for resolved/relayed reports
+    let responseMinutes = null;
+    if (typeof raw.responseTimeMinutes === 'number') {
+      responseMinutes = raw.responseTimeMinutes;
+    } else if (closedAt && timestamp) {
+      responseMinutes = Math.round((closedAt - timestamp) / 60000);
+    } else {
+      // For resolved/relayed reports without closedAt, use lastUpdatedAt
+      const status = (raw.status || '').toLowerCase();
+      if ((status === 'resolved' || status === 'relayed') && lastUpdatedAt && timestamp) {
+        responseMinutes = Math.round((lastUpdatedAt - timestamp) / 60000);
+      }
+    }
+    
+    // Ensure responseMinutes is valid (not negative)
+    if (responseMinutes !== null && responseMinutes < 0) {
+      responseMinutes = null;
+    }
 
     // Resolve reportedBy - check multiple possible field names
     let reportedBy = null;
@@ -359,6 +461,24 @@
       console.warn(`History Report ${id} has no reporter name or UID. Available fields:`, Object.keys(raw));
     }
 
+    // Resolve closedBy - for resolved/relayed reports, fall back to lastUpdatedBy if closedBy is not set
+    const status = (raw.status || '').toLowerCase();
+    const isResolvedOrRelayed = status === 'resolved' || status === 'relayed';
+    
+    let closedBy = raw.closedBy || raw.closedByName || '';
+    let closedByUid = raw.closedByUid || null;
+    
+    // If closedBy is not set but report is resolved/relayed, use lastUpdatedBy as fallback
+    if ((!closedBy || closedBy === '') && isResolvedOrRelayed) {
+      closedBy = raw.lastUpdatedBy || raw.lastUpdatedByName || '';
+      closedByUid = raw.lastUpdatedByUid || null;
+    }
+    
+    // If we have a UID but no name, mark it for async resolution
+    if ((!closedBy || closedBy === '') && closedByUid) {
+      closedBy = 'Loading...';
+    }
+
     return {
       id,
       type: raw.emergencyType || raw.type || 'General',
@@ -372,7 +492,8 @@
       reportedBy: reportedBy || (reportedByUid ? 'Loading...' : 'Unknown'),
       reportedByUid: reportedByUid,
       notes: raw.residentNotes || raw.notes || '',
-      closedBy: raw.closedBy || raw.closedByName || '',
+      closedBy: closedBy || '',
+      closedByUid: closedByUid,
       lastUpdatedBy: raw.lastUpdatedBy || raw.lastUpdatedByName || '',
       timestamp: new Date(timestamp).toLocaleString(),
       lastUpdatedAt: raw.lastUpdatedAt ? new Date(Number(raw.lastUpdatedAt)).toLocaleString() : '—',
@@ -423,11 +544,20 @@
           if (name) return name;
         }
 
+        // Search responder by email (responders might close reports)
+        const responderQuery = query(collection(db, 'responder'), where('email', '==', uidOrEmail));
+        const responderSnapshot = await getDocs(responderQuery);
+        if (!responderSnapshot.empty) {
+          const data = responderSnapshot.docs[0].data();
+          const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || data.fullName;
+          if (name) return name;
+        }
+
         // Fallback to email
         return uidOrEmail;
       }
 
-      // UID lookup
+      // UID lookup - check all collections
       const adminDoc = await getDoc(doc(db, 'admin', uidOrEmail));
       if (adminDoc.exists()) {
         const data = adminDoc.data();
@@ -443,6 +573,12 @@
         const data = residentDoc.data();
         return `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || uidOrEmail;
       }
+      // Check responder collection (responders might close reports)
+      const responderDoc = await getDoc(doc(db, 'responder', uidOrEmail));
+      if (responderDoc.exists()) {
+        const data = responderDoc.data();
+        return `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || data.fullName || uidOrEmail;
+      }
     } catch (error){
       console.error('Failed to resolve user name for history report', uidOrEmail, error);
     }
@@ -450,24 +586,39 @@
   }
 
   /**
-   * Resolve reportedBy names for history reports that have UIDs/emails but no names
+   * Resolve reportedBy and closedBy names for history reports that have UIDs/emails but no names
    */
   async function resolveReportedByNames(historyReports) {
     const reportsToResolve = historyReports.filter(r => 
-      (!r.reportedBy || r.reportedBy === 'Unknown' || r.reportedBy === 'Loading...') && 
-      r.reportedByUid
+      ((!r.reportedBy || r.reportedBy === 'Unknown' || r.reportedBy === 'Loading...') && r.reportedByUid) ||
+      ((!r.closedBy || r.closedBy === 'Loading...' || r.closedBy === '') && r.closedByUid)
     );
 
     if (reportsToResolve.length === 0) {
       return;
     }
 
+    console.log(`Resolving names for ${reportsToResolve.length} history report(s)`);
+
     // Resolve names for all reports that need it
     const resolutionPromises = reportsToResolve.map(async (report) => {
       try {
-        const name = await resolveUserDisplayName(report.reportedByUid);
-        if (name && name !== 'Unknown') {
-          report.reportedBy = name;
+        // Resolve reportedBy
+        if ((!report.reportedBy || report.reportedBy === 'Unknown' || report.reportedBy === 'Loading...') && report.reportedByUid) {
+          const name = await resolveUserDisplayName(report.reportedByUid);
+          if (name && name !== 'Unknown') {
+            report.reportedBy = name;
+            console.log(`✅ Resolved reportedBy for report ${report.id}: ${name}`);
+          }
+        }
+        
+        // Resolve closedBy
+        if ((!report.closedBy || report.closedBy === 'Loading...' || report.closedBy === '') && report.closedByUid) {
+          const name = await resolveUserDisplayName(report.closedByUid);
+          if (name && name !== 'Unknown') {
+            report.closedBy = name;
+            console.log(`✅ Resolved closedBy for report ${report.id}: ${name}`);
+          }
         }
       } catch (error) {
         console.error(`Error resolving name for history report ${report.id}:`, error);

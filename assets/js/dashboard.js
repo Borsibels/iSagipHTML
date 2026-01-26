@@ -13,7 +13,6 @@
     var totalEl = document.getElementById('stat-total-value');
     var badgesEl = document.getElementById('emergency-types-badges');
     var avgEl = document.getElementById('avg-response');
-    var exportBtn = document.getElementById('export-csv');
     var testNotifBtn = document.getElementById('test-notification-btn');
     var notifContainer = document.getElementById('notification-container');
     var filterPeriodEl = document.getElementById('filter-period');
@@ -118,8 +117,22 @@
         if (newReports.length > 0 && notifContainer) {
           var newReport = newReports[0]; // Show notification for the most recent
           var reportType = newReport.type || 'Emergency';
-          var reportDesc = newReport.description || newReport.landmark || 'No description';
-          var reportLocation = newReport.street || 'Location not specified';
+          // Show "Urgent Report" if no description
+          var reportDesc = newReport.description || newReport.landmark || '';
+          if (!reportDesc || reportDesc.trim() === '') {
+            reportDesc = 'Urgent Report';
+          }
+          // Show street if available, otherwise show lat/lng
+          var reportLocation = '';
+          if (newReport.street && newReport.street.trim() !== '' && newReport.street !== 'N/A') {
+            reportLocation = newReport.street;
+          } else if (newReport.address && newReport.address.trim() !== '' && newReport.address !== 'N/A') {
+            reportLocation = newReport.address;
+          } else if (newReport.latitude != null && newReport.longitude != null) {
+            reportLocation = newReport.latitude.toFixed(6) + ', ' + newReport.longitude.toFixed(6);
+          } else {
+            reportLocation = 'Location not specified';
+          }
           
           var notification = document.createElement('div');
           notification.className = 'notification emergency';
@@ -170,9 +183,11 @@
 
     function normalizeType(value){
       var v = (value || '').toString().toLowerCase();
-      if (v.includes('med')) return 'Medical';
+      if (v.includes('urgent') || v.includes('emergency')) return 'Urgent';
+      if (v.includes('medical') || v.includes('med') || v.includes('injur')) return 'Medical';
       if (v.includes('fire')) return 'Fire';
-      if (v.includes('police') || v.includes('crime')) return 'Police';
+      if (v.includes('police') || v.includes('criminal') || v.includes('hostile') || v.includes('crime')) return 'Police';
+      if (v.includes('barangay') && v.includes('assist')) return 'Barangay Assistance';
       if (v.includes('other')) return 'Others';
       return 'Others';
     }
@@ -257,6 +272,43 @@
 
     function mapRawReport(id, raw){
       var ts = parseTimestamp(raw?.timestamp);
+      
+      // Resolve reportedBy - check multiple possible field names (similar to reports.js)
+      var reportedBy = null;
+      var reportedByUid = null;
+      
+      // Check all possible name field variations
+      var nameFields = ['userName', 'reportedByName', 'by', 'reporterName', 'reportedBy', 
+                        'reporter', 'user', 'reportedByUser', 'reporterUser', 'name',
+                        'user_name', 'reported_by_name', 'reporter_name'];
+      
+      for (var i = 0; i < nameFields.length; i++) {
+        var field = nameFields[i];
+        if (raw && raw[field] && raw[field] !== 'Unknown' && String(raw[field]).trim() !== '') {
+          reportedBy = raw[field];
+          break;
+        }
+      }
+      
+      // Check all possible UID field variations
+      var uidFields = ['userId', 'userUid', 'reportedByUid', 'reporterUid', 'reportedByUserId',
+                        'userID', 'user_id', 'reported_by_uid', 'reporter_uid', 'uid',
+                        'reporterId', 'reportedById'];
+      
+      for (var j = 0; j < uidFields.length; j++) {
+        var uidField = uidFields[j];
+        if (raw && raw[uidField] && String(raw[uidField]).trim() !== '') {
+          reportedByUid = raw[uidField];
+          break;
+        }
+      }
+      
+      // If we have userEmail but no name/UID, use email for async resolution
+      var userEmail = raw?.userEmail || raw?.email || raw?.user_email || null;
+      if (!reportedBy && !reportedByUid && userEmail) {
+        reportedByUid = userEmail;
+      }
+      
       return {
         id: id,
         type: normalizeType(raw?.emergencyType || raw?.type),
@@ -265,7 +317,8 @@
         street: raw?.street || raw?.location || '',
         landmark: raw?.landmark || '',
         photo: raw?.photoUri || raw?.photoUrl || raw?.photo || '',
-        reportedBy: raw?.userName || raw?.reportedByName || raw?.by || 'Unknown',
+        reportedBy: reportedBy || (reportedByUid ? 'Loading...' : 'Unknown'),
+        reportedByUid: reportedByUid,
         closedBy: raw?.closedBy || raw?.closedByName || '',
         lastUpdatedBy: raw?.lastUpdatedBy || raw?.lastUpdatedByName || '',
         lastUpdatedAtLabel: raw?.lastUpdatedAt ? new Date(Number(raw.lastUpdatedAt)).toLocaleString() : '—',
@@ -304,7 +357,7 @@
 
       if (totalEl) totalEl.textContent = String(source.length);
 
-      var counts = { Medical:0, Fire:0, Police:0, Others:0 };
+      var counts = { Medical:0, Fire:0, Police:0, Urgent:0, 'Barangay Assistance':0, Others:0 };
       source.forEach(function(r){
         if (counts[r.type] !== undefined) counts[r.type]++;
         else counts.Others++;
@@ -314,6 +367,8 @@
           '<span class="badge badge-blue">Medical: '+counts.Medical+'</span>',
           '<span class="badge badge-orange">Fire: '+counts.Fire+'</span>',
           '<span class="badge badge-green">Police: '+counts.Police+'</span>',
+          '<span class="badge" style="background: #ffa500; color: white;">Urgent: '+counts.Urgent+'</span>',
+          '<span class="badge" style="background: #ffd700; color: #333;">Barangay Assistance: '+counts['Barangay Assistance']+'</span>',
           '<span class="badge badge-gray">Others: '+counts.Others+'</span>'
         ].join(' ');
       }
@@ -343,19 +398,39 @@
             else if (status === 'assigned' || status === 'accepted') statusColor = '#f59e0b';
             else if (status === 'en_route' || status === 'arrived') statusColor = '#10b981';
             
-            html += '<div style="padding: 16px; border: 1px solid var(--outline); border-radius: 8px; background: var(--surface); transition: all 0.2s;">';
-            html += '<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">';
-            html += '<div style="flex: 1;">';
-            html += '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">';
-            html += '<strong style="color: var(--text); font-size: 15px;">' + (report.type || 'Emergency') + '</strong>';
-            html += '<span style="padding: 2px 8px; background: ' + statusColor + '; color: white; border-radius: 4px; font-size: 11px; font-weight: 500; text-transform: uppercase;">' + formatStatusText(report.status || '') + '</span>';
+            html += '<div style="padding: 16px; border: 1px solid var(--outline); border-radius: 8px; background: var(--surface); transition: all 0.2s; word-wrap: break-word; overflow-wrap: break-word;">';
+            html += '<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; gap: 12px;">';
+            html += '<div style="flex: 1; min-width: 0;">';
+            // Add Report ID
+            html += '<div style="margin-bottom: 6px;">';
+            html += '<span style="color: var(--muted); font-size: 11px; font-family: monospace; word-break: break-all;">ID: ' + (report.id || 'N/A') + '</span>';
             html += '</div>';
-            html += '<p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.4;">' + (report.description || report.landmark || 'No description') + '</p>';
+            html += '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">';
+            html += '<strong style="color: var(--text); font-size: 15px; word-break: break-word;">' + (report.type || 'Emergency') + '</strong>';
+            html += '<span style="padding: 2px 8px; background: ' + statusColor + '; color: white; border-radius: 4px; font-size: 11px; font-weight: 500; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;">' + formatStatusText(report.status || '') + '</span>';
+            html += '</div>';
+            // Show "Urgent Report" if no description
+            var description = report.description || report.landmark || '';
+            if (!description || description.trim() === '') {
+              description = 'Urgent Report';
+            }
+            html += '<p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.4; word-break: break-word;">' + description + '</p>';
             html += '</div>';
             html += '</div>';
-            html += '<div style="display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--muted);">';
-            html += '<span>📍 ' + (report.street || report.address || 'Location not specified') + '</span>';
-            html += '<span>🕐 ' + (report.timestampLabel || 'Time unknown') + '</span>';
+            html += '<div style="display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap;">';
+            // Show street if available, otherwise show lat/lng
+            var locationDisplay = '';
+            if (report.street && report.street.trim() !== '' && report.street !== 'N/A') {
+              locationDisplay = report.street;
+            } else if (report.address && report.address.trim() !== '' && report.address !== 'N/A') {
+              locationDisplay = report.address;
+            } else if (report.latitude != null && report.longitude != null) {
+              locationDisplay = report.latitude.toFixed(6) + ', ' + report.longitude.toFixed(6);
+            } else {
+              locationDisplay = 'Location not specified';
+            }
+            html += '<span style="word-break: break-word;">📍 ' + locationDisplay + '</span>';
+            html += '<span style="white-space: nowrap;">🕐 ' + (report.timestampLabel || 'Time unknown') + '</span>';
             html += '</div>';
             html += '</div>';
           });
@@ -365,60 +440,131 @@
       }
     }
 
-    function exportReportsCsv(){
-      var source = getFilteredReports();
-      if (!source.length) { showToast('No data to export'); return; }
-      var headers = [
-        'ID',
-        'Emergency Type',
-        'Description',
-        'Status',
-        'Street',
-        'Landmark',
-        'Photo',
-        'Actions',
-        'Timestamp',
-        'Response Time',
-        'Reported By',
-        'Closed By',
-        'Last Updated By',
-        'Last Updated At',
-        'Notes'
-      ];
-      var rows = source.map(function(r){
-        return [
-          r.id,
-          r.type,
-          (r.description || '').replace(/\n/g,' ').replace(/"/g,'""'),
-          formatStatusText(r.status),
-          r.street,
-          r.landmark,
-          r.photo || '',
-          r.actionsLabel || '',
-          r.timestampLabel,
-          r.responseTimeLabel,
-          r.reportedBy || '',
-          r.closedBy || '',
-          r.lastUpdatedBy || '',
-          r.lastUpdatedAtLabel || '',
-          (r.notes || '').replace(/\n/g,' ').replace(/"/g,'""')
-        ];
+    /**
+     * Resolve user display name from UID or email
+     */
+    async function resolveUserDisplayName(uidOrEmail){
+      if (!uidOrEmail) return 'Unknown';
+
+      var isEmail = String(uidOrEmail).includes('@');
+
+      try{
+        var firestore = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js");
+        var doc = firestore.doc;
+        var getDoc = firestore.getDoc;
+        var collection = firestore.collection;
+        var query = firestore.query;
+        var where = firestore.where;
+        var getDocs = firestore.getDocs;
+        var db = window.iSagipDb;
+        if (!db) return uidOrEmail;
+
+        if (isEmail) {
+          // Search residents by email
+          var residentsQuery = query(collection(db, 'residents'), where('email', '==', uidOrEmail));
+          var residentsSnapshot = await getDocs(residentsQuery);
+          if (!residentsSnapshot.empty) {
+            var data = residentsSnapshot.docs[0].data();
+            var name = (data.firstName || '') + ' ' + (data.lastName || '');
+            name = name.trim() || data.lastName || data.firstName;
+            if (name) return name;
+          }
+
+          // Search staff by email
+          var staffQuery = query(collection(db, 'staff'), where('email', '==', uidOrEmail));
+          var staffSnapshot = await getDocs(staffQuery);
+          if (!staffSnapshot.empty) {
+            var data = staffSnapshot.docs[0].data();
+            var name = (data.firstName || '') + ' ' + (data.lastName || '');
+            name = name.trim() || data.lastName || data.firstName;
+            if (name) return name;
+          }
+
+          // Search admin by email
+          var adminQuery = query(collection(db, 'admin'), where('email', '==', uidOrEmail));
+          var adminSnapshot = await getDocs(adminQuery);
+          if (!adminSnapshot.empty) {
+            var data = adminSnapshot.docs[0].data();
+            var name = (data.firstName || '') + ' ' + (data.lastName || '');
+            name = name.trim() || data.lastName || data.firstName;
+            if (name) return name;
+          }
+
+          // Search responder by email
+          var responderQuery = query(collection(db, 'responder'), where('email', '==', uidOrEmail));
+          var responderSnapshot = await getDocs(responderQuery);
+          if (!responderSnapshot.empty) {
+            var data = responderSnapshot.docs[0].data();
+            var name = (data.firstName || '') + ' ' + (data.lastName || '');
+            name = name.trim() || data.lastName || data.firstName || data.fullName;
+            if (name) return name;
+          }
+
+          // Fallback to email
+          return uidOrEmail;
+        }
+
+        // UID lookup - check all collections
+        var adminDoc = await getDoc(doc(db, 'admin', uidOrEmail));
+        if (adminDoc.exists()) {
+          var data = adminDoc.data();
+          var name = (data.firstName || '') + ' ' + (data.lastName || '');
+          name = name.trim() || data.lastName || data.firstName || uidOrEmail;
+          return name;
+        }
+        var staffDoc = await getDoc(doc(db, 'staff', uidOrEmail));
+        if (staffDoc.exists()) {
+          var data = staffDoc.data();
+          var name = (data.firstName || '') + ' ' + (data.lastName || '');
+          name = name.trim() || data.lastName || data.firstName || uidOrEmail;
+          return name;
+        }
+        var residentDoc = await getDoc(doc(db, 'residents', uidOrEmail));
+        if (residentDoc.exists()) {
+          var data = residentDoc.data();
+          var name = (data.firstName || '') + ' ' + (data.lastName || '');
+          name = name.trim() || data.lastName || data.firstName || uidOrEmail;
+          return name;
+        }
+        // Check responder collection
+        var responderDoc = await getDoc(doc(db, 'responder', uidOrEmail));
+        if (responderDoc.exists()) {
+          var data = responderDoc.data();
+          var name = (data.firstName || '') + ' ' + (data.lastName || '');
+          name = name.trim() || data.lastName || data.firstName || data.fullName || uidOrEmail;
+          return name;
+        }
+      } catch (error){
+        console.error('Failed to resolve user name for dashboard report', uidOrEmail, error);
+      }
+      return uidOrEmail;
+    }
+
+    /**
+     * Resolve reportedBy names for reports that have UIDs but no names
+     */
+    async function resolveReportedByNames(reports) {
+      var reportsToResolve = reports.filter(function(r) {
+        return (!r.reportedBy || r.reportedBy === 'Unknown' || r.reportedBy === 'Loading...') && r.reportedByUid;
       });
-      var csv = [headers].concat(rows).map(function(arr){
-        return arr.map(function(cell){
-          var val = cell === null || cell === undefined ? '' : String(cell);
-          return /[",\n]/.test(val) ? '"' + val.replace(/"/g,'""') + '"' : val;
-        }).join(',');
-      }).join('\n');
-      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'reports_dashboard_export.csv';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+
+      if (reportsToResolve.length === 0) return;
+
+      var promises = reportsToResolve.map(function(report) {
+        return resolveUserDisplayName(report.reportedByUid).then(function(name) {
+          if (name && name !== report.reportedByUid) {
+            report.reportedBy = name;
+            // Update map markers if they exist
+            if (window.updateISagipMapMarkers && Array.isArray(reports)) {
+              window.updateISagipMapMarkers(reports);
+            }
+            // Update active reports list if it exists
+            updateStats();
+          }
+        });
+      });
+
+      await Promise.all(promises);
     }
 
     async function init(){
@@ -460,10 +606,14 @@
               }
             }
             
-            if (Array.isArray(reports)) {
-              if (window.updateISagipMapMarkers) window.updateISagipMapMarkers(reports);
-              else window.iSagipPendingMarkersData = reports;
-            }
+            // Resolve reportedBy names for reports that have UIDs but no names
+            resolveReportedByNames(reports).then(function() {
+              // Update map markers after name resolution
+              if (Array.isArray(reports)) {
+                if (window.updateISagipMapMarkers) window.updateISagipMapMarkers(reports);
+                else window.iSagipPendingMarkersData = reports;
+              }
+            });
             ensureYearOptions();
             updateStats();
           },
@@ -476,7 +626,6 @@
       }
     }
 
-    if (exportBtn) exportBtn.addEventListener('click', exportReportsCsv);
     if (testNotifBtn) testNotifBtn.addEventListener('click', function(){ showToast('Test notification sent'); });
     if (filterPeriodEl) filterPeriodEl.addEventListener('change', function(){ updateStats(); });
     if (filterMonthEl) filterMonthEl.addEventListener('change', function(){ updateStats(); });

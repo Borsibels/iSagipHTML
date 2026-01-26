@@ -19,8 +19,9 @@
           <a class="menu-item" href="dashboard.html">Dashboard</a>
           <a class="menu-item" href="reports.html">Reports</a>
           <a class="menu-item active" href="reports-history.html">History</a>
-          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="staff-management.html">Staff Management</a>
           <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
           <a class="menu-item" href="mass-register-residents.html">Mass Resident Registration</a>
           <a class="menu-item" href="register-resident.html">Resident Registration</a>
@@ -30,31 +31,21 @@
 
       <main class="content">
         <section class="card">
-          <h3 class="section-title">Resolved & Relayed Reports History</h3>
-          <p style="color: var(--muted); margin-bottom: 24px;">
-            View and search through all resolved and relayed emergency reports. These reports are automatically moved here once they are resolved or relayed. Use filters to find specific cases by date, type, or reporter.
-          </p>
-          
-          <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-            <input type="text" id="resolved-search" class="input" placeholder="Search by ID, type, description, or reporter..." style="flex: 1; min-width: 250px;" />
-            <select id="resolved-sort" class="input" style="width: 180px;">
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="response-time">Response Time (Fastest)</option>
-              <option value="response-time-slow">Response Time (Slowest)</option>
-            </select>
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <label for="resolved-date-from" style="font-size: 12px; color: var(--muted); white-space: nowrap;">From:</label>
-              <input type="date" id="resolved-date-from" class="input" style="width: 150px;" />
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <h3 class="section-title" style="margin: 0;">Resolved & Relayed Reports History</h3>
+              <p style="color: var(--muted); margin-top: 8px; margin-bottom: 0;">
+                View all resolved and relayed emergency reports. These reports are automatically moved here once they are resolved or relayed.
+              </p>
             </div>
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <label for="resolved-date-to" style="font-size: 12px; color: var(--muted); white-space: nowrap;">To:</label>
-              <input type="date" id="resolved-date-to" class="input" style="width: 150px;" />
-            </div>
-            <button class="btn btn-outline btn-small" id="resolved-clear-filters">Clear Filters</button>
+            <button class="btn btn-outline" id="history-export-csv" style="white-space: nowrap;">EXPORT TO CSV</button>
           </div>
           
-          <div class="table reports-table">
+          <div style="margin-bottom: 16px;">
+            <input type="text" id="resolved-search" class="input" placeholder="Search by ID, type, description, or reporter..." style="width: 100%; max-width: 500px;" />
+          </div>
+          
+          <div class="table reports-table reports-history-table">
             <div class="t-head t-row">
               <div>ID</div>
               <div>Type</div>

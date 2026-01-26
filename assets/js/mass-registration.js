@@ -75,23 +75,47 @@
 
     fileInput.addEventListener('change', function(e) {
       const file = e.target.files[0];
-      if (!file) return;
+      if (!file) {
+        console.log('No file selected');
+        return;
+      }
+
+      // Validate file type
+      if (!file.name.endsWith('.csv') && file.type !== 'text/csv' && file.type !== 'application/vnd.ms-excel') {
+        alert('Please select a CSV file.');
+        fileInput.value = '';
+        return;
+      }
 
       fileName.textContent = 'Selected: ' + file.name;
 
       const reader = new FileReader();
+      reader.onerror = function() {
+        alert('Error reading file. Please try again.');
+        fileName.textContent = '';
+        preview.style.display = 'none';
+        fileInput.value = '';
+      };
       reader.onload = function(e) {
         try {
           const csv = e.target.result;
+          if (!csv || csv.trim().length === 0) {
+            throw new Error('CSV file is empty');
+          }
           parsedData = parseCSV(csv);
+          if (!parsedData || parsedData.length === 0) {
+            throw new Error('No valid data found in CSV file');
+          }
           displayCSVPreview(parsedData);
         } catch (error) {
+          console.error('CSV parsing error:', error);
           alert('Error parsing CSV: ' + error.message);
           fileName.textContent = '';
           preview.style.display = 'none';
+          fileInput.value = '';
         }
       };
-      reader.readAsText(file);
+      reader.readAsText(file, 'UTF-8');
     });
 
     // Drag and drop
@@ -110,7 +134,7 @@
         uploadSection.classList.remove('dragover');
         
         const file = e.dataTransfer.files[0];
-        if (file && file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
           fileInput.files = e.dataTransfer.files;
           fileInput.dispatchEvent(new Event('change'));
         } else {
@@ -122,8 +146,7 @@
 
   /**
    * Parse CSV content
-   * Expected format: Email, Full Name, Age, Role, Responder Type (optional)
-   * Full Name format: "Last Name, First Name Middle Name" or "Last Name, First Name"
+   * Expected format: Email, Last Name, First Name, Middle Name, Age, Role, Responder Type (optional)
    */
   function parseCSV(csv) {
     const lines = csv.split('\n').filter(line => line.trim());
@@ -136,41 +159,20 @@
 
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
-      if (values.length < 3) continue; // Skip empty rows
+      if (values.length < 5) continue; // Skip empty rows (need at least Email, Last Name, First Name, Age, Role)
 
       const email = values[0] || '';
-      const fullName = values[1] || '';
-      const age = parseInt(values[2]) || 0;
-      const role = (values[3] || 'barangay_staff').toLowerCase();
-      const responderType = values[4] || 'Fire';
-
-      // Parse Full Name into Last Name, First Name, Middle Name
-      // Expected format: "Last Name, First Name Middle Name" or "Last Name, First Name"
-      let lastName = '';
-      let firstName = '';
-      let middleName = '';
-      
-      if (fullName) {
-        const nameParts = fullName.split(',').map(p => p.trim());
-        if (nameParts.length >= 2) {
-          lastName = nameParts[0];
-          const firstMiddleParts = nameParts[1].split(/\s+/).filter(p => p);
-          if (firstMiddleParts.length >= 1) {
-            firstName = firstMiddleParts[0];
-            if (firstMiddleParts.length > 1) {
-              middleName = firstMiddleParts.slice(1).join(' ');
-            }
-          }
-        } else {
-          // If no comma, treat entire string as last name (fallback)
-          lastName = fullName;
-        }
-      }
+      const lastName = values[1] || '';
+      const firstName = values[2] || '';
+      const middleName = values[3] || '';
+      const age = parseInt(values[4]) || 0;
+      const role = (values[5] || 'barangay_staff').toLowerCase();
+      const responderType = values[6] || 'Fire';
 
       // Format fullName to match manual entry format: "Last Name, First Name Middle Name"
       const formattedFullName = lastName && firstName 
         ? `${lastName}, ${firstName}${middleName ? ' ' + middleName : ''}` 
-        : fullName; // Fallback to original if parsing failed
+        : `${lastName || ''}, ${firstName || ''}`.trim();
 
       const entry = {
         email: email.toLowerCase(),
@@ -184,7 +186,7 @@
       };
 
       // Validate entry
-      if (!entry.email || !entry.lastName || !entry.firstName || !entry.age || entry.age < 1) {
+      if (!entry.email || !entry.email.includes('@') || !entry.lastName || !entry.firstName || !entry.age || entry.age < 1) {
         console.warn('Skipping invalid row:', entry);
         continue;
       }

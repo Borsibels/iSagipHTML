@@ -57,8 +57,9 @@
           <a class="menu-item active" href="dashboard.html">Dashboard</a>
           <a class="menu-item active" href="reports.html">Reports</a>
           <a class="menu-item" href="reports-history.html">History</a>
-          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="staff-management.html">Staff Management</a>
           <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
           <a class="menu-item" href="mass-register-residents.html">Mass Resident Registration</a>
           <a class="menu-item" href="register-resident.html">Resident Registration</a>
@@ -86,10 +87,6 @@
               <div class="stat-title">Active Cases</div>
               <div class="stat-value" id="r-active">0</div>
             </div>
-            <div class="stat">
-              <div class="stat-title">Export</div>
-              <button class="btn btn-outline" id="reports-export-csv">EXPORT TO CSV</button>
-            </div>
           </div>
           <div class="section-actions" style="margin-top:12px;">
             <button class="btn btn-primary" id="add-report-btn" hidden>+ Create Report</button>
@@ -98,11 +95,7 @@
 
         <section class="card" style="overflow:auto;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 class="section-title" style="margin: 0;">Recent Reports</h3>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-outline btn-small" id="filter-active-btn">Active Only</button>
-              <button class="btn btn-outline btn-small active" id="filter-all-btn">All Reports</button>
-            </div>
+            <h3 class="section-title" style="margin: 0;">Active Reports</h3>
           </div>
           <div class="table reports-table">
             <div class="t-head t-row">
@@ -122,7 +115,6 @@
               <div>Closed By</div>
               <div>Updated By</div>
               <div>Updated At</div>
-              <div>Notes</div>
             </div>
             <div class="t-body" id="reports-rows"></div>
           </div>
@@ -202,10 +194,6 @@
                 <label>
                   <span>Last Updated At</span>
                   <input id="details-updated-at" class="input" readonly />
-                </label>
-                <label>
-                  <span>Notes</span>
-                  <textarea id="details-notes" class="input" rows="3" readonly></textarea>
                 </label>
               </div>
             </div>
@@ -305,10 +293,6 @@
               <select class="input" id="manage-vehicle">
                 <option value="">Select an ambulance</option>
               </select>
-            </label>
-            <label style="grid-column:1/-1;">
-              <span>Notes / Instructions</span>
-              <textarea class="input" id="manage-notes" rows="3" placeholder="Add details for the responders..."></textarea>
             </label>
           </div>
         </form>

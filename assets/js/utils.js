@@ -155,17 +155,19 @@
       medical: null,
       police: null,
       urgent: null,
+      barangay: null,
       general: null
     };
     var heatmapsVisible = true;
     
     function typeColor(type) {
       var t = (type || '').toString().toLowerCase();
-      if (t.includes('fire')) return 'orange';
-      if (t.includes('medical') || t.includes('injur')) return 'blue';
-      if (t.includes('police') || t.includes('criminal') || t.includes('hostile')) return 'purple';
-      if (t.includes('urgent') || t.includes('emergency')) return 'red';
-      return 'green';
+      if (t.includes('urgent') || t.includes('emergency')) return 'orange'; // Orange for urgent (matches dashboard legend)
+      if (t.includes('fire')) return 'red'; // Red for fire (matches dashboard legend)
+      if (t.includes('medical') || t.includes('injur')) return 'blue'; // Blue for medical
+      if (t.includes('police') || t.includes('criminal') || t.includes('hostile')) return 'purple'; // Purple for police
+      if (t.includes('barangay') && t.includes('assist')) return 'yellow'; // Yellow for barangay assistance
+      return 'green'; // Green for general/others
     }
     function markerIcon(color) {
       return {
@@ -181,6 +183,7 @@
       if (t.includes('medical') || t.includes('injur')) return 'medical';
       if (t.includes('police') || t.includes('criminal') || t.includes('hostile')) return 'police';
       if (t.includes('urgent') || t.includes('emergency')) return 'urgent';
+      if (t.includes('barangay') && t.includes('assist')) return 'barangay';
       return 'general';
     }
     
@@ -209,6 +212,7 @@
         medical: [],
         police: [],
         urgent: [],
+        barangay: [],
         general: []
       };
       
@@ -278,6 +282,17 @@
         ]);
       }
       
+      // Barangay Assistance - Yellow/Gold gradient
+      if (dataByCategory.barangay.length > 0) {
+        heatmaps.barangay = createHeatmapLayer(dataByCategory.barangay, [
+          'rgba(255, 215, 0, 0)',
+          'rgba(255, 230, 50, 0.4)',
+          'rgba(255, 240, 100, 0.6)',
+          'rgba(255, 220, 80, 0.8)',
+          'rgba(255, 200, 0, 1)'
+        ]);
+      }
+      
       // General/Other - Green gradient
       if (dataByCategory.general.length > 0) {
         heatmaps.general = createHeatmapLayer(dataByCategory.general, [
@@ -331,9 +346,11 @@
           }
           selectedMarker = marker;
           var time = r.timestampLabel || r.timestamp || '';
+          var reportedBy = r.reportedBy || r.userName || r.reportedByName || r.by || 'Unknown';
           var html = '<div><strong>' + (r.type || 'Emergency') + '</strong>'
             + (r.status ? (' <span style="color:#64748b;">(' + r.status.toString().replace(/[_-]/g, ' ').replace(/\b\w/g, function(ch){ return ch.toUpperCase(); }) + ')</span>') : '')
             + '<br/>' + (r.description || r.landmark || 'No description')
+            + '<br/><span style="font-size:12px;color:#666">Reported by: ' + reportedBy + '</span>'
             + (time ? '<br/><span style="font-size:12px;color:#666">Time: ' + time + '</span>' : '')
             + '</div>';
           infoWindow.setContent(html);

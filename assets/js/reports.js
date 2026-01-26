@@ -77,7 +77,6 @@
     const responderCheckboxesContainer = document.getElementById('responder-checkboxes');
     const noRespondersMessage = document.getElementById('no-responders-message');
     const manageVehicleInput = document.getElementById('manage-vehicle');
-    const manageNotesInput = document.getElementById('manage-notes');
     const manageVehicleSelect = document.getElementById('manage-vehicle');
     let ambulancesMap = {};
     let respondersMap = {}; // Firestore responder data (name, email, status)
@@ -90,7 +89,6 @@
     let rawReports = {};
     let previousReportIds = new Set(); // Track previous reports to detect new ones
     let groupedReports = []; // Store grouped reports for duplicate handling
-    let showActiveOnly = false; // Filter for active reports only
 
     init();
 
@@ -209,32 +207,6 @@
       } catch (error) {
         console.error('Failed to initialize reports page:', error);
       }
-
-      // Setup filter buttons
-      setupFilterButtons();
-    }
-
-    /**
-     * Setup filter buttons for active/all reports
-     */
-    function setupFilterButtons() {
-      // Filter buttons
-      document.getElementById('filter-active-btn')?.addEventListener('click', function() {
-        showActiveOnly = true;
-        this.classList.add('active');
-        document.getElementById('filter-all-btn')?.classList.remove('active');
-        renderReports();
-      });
-
-      document.getElementById('filter-all-btn')?.addEventListener('click', function() {
-        showActiveOnly = false;
-        this.classList.add('active');
-        document.getElementById('filter-active-btn')?.classList.remove('active');
-        renderReports();
-      });
-
-      // Set default to "All Reports"
-      document.getElementById('filter-all-btn')?.classList.add('active');
     }
 
     /**
@@ -435,20 +407,11 @@
         return status !== 'resolved' && status !== 'relayed';
       });
 
-      // Apply additional filter for active only if needed
-      if (showActiveOnly) {
-        // Already filtered out resolved/relayed, so this is just for consistency
-        reportsToRender = reportsToRender.filter(r => {
-          const status = (r.status || '').toLowerCase();
-          return status !== 'resolved';
-        });
-      }
-
       if (!reportsToRender.length) {
         reportsTable.innerHTML = `
           <div class="t-row">
             <div style="grid-column:1/-1;text-align:center;padding:1.5rem;color:var(--muted);">
-              ${showActiveOnly ? 'No active reports.' : 'No active reports. Resolved and relayed reports are shown in History.'}
+              No active reports. Resolved and relayed reports are shown in History.
             </div>
           </div>`;
         groupedReports = [];
@@ -487,27 +450,27 @@
               <button class="btn btn-small btn-outline" data-action="view-report" data-id="${report.id}">
                 View
               </button>
-              ${isDuplicate ? `<button class="btn btn-small btn-secondary" data-action="view-duplicates" data-group-index="${groupIndex}" title="View all ${group.count} reports" style="font-size:11px;padding:4px 8px;">View All (${group.count})</button>` : ''}
               ${
                 canManage
                   ? `<button class="btn btn-small btn-primary" data-action="manage-report" data-id="${report.id}">
                       Manage
                     </button>`
-                  : ''
+                  : '<div></div>'
               }
               ${
                 canDelete
                   ? `<button class="btn btn-small btn-danger" data-action="delete-report" data-id="${report.id}">
                       Delete
                     </button>`
-                  : ''
+                  : (isDuplicate ? '<div></div>' : '')
               }
+              ${isDuplicate ? `<button class="btn btn-small btn-secondary" data-action="view-duplicates" data-group-index="${groupIndex}" title="View all ${group.count} reports" style="font-size:11px;padding:4px 8px;">View All (${group.count})</button>` : ''}
             </div>
           `;
 
           return `
             <div class="t-row" data-report-id="${report.id}" ${isDuplicate ? 'data-has-duplicates="true"' : ''}>
-              <div title="${report.id}">${report.id}${duplicateBadge}</div>
+              <div title="${report.id}"><span class="report-id-text">${report.id}</span>${duplicateBadge}</div>
               <div>${escapeHtml(report.type)}</div>
               <div>${escapeHtml(report.description)}${reportersList}</div>
               <div>${formatStatusBadge(report.status)}</div>
@@ -523,7 +486,6 @@
               <div>${escapeHtml(report.closedBy || '—')}</div>
               <div>${escapeHtml(report.lastUpdatedBy || '—')}</div>
               <div>${report.lastUpdatedAt || '—'}</div>
-              <div>${escapeHtml(report.notes || '—')}</div>
             </div>
           `;
         })
@@ -535,15 +497,41 @@
       // But display only active reports in the table
       const allGroupedReports = groupDuplicateReports(reports);
       const total = allGroupedReports.length > 0 ? allGroupedReports.length : reports.length;
-      const resolved = reports.filter((r) => {
-        const status = (r.status || '').toLowerCase();
+      // Count resolved/relayed from grouped reports to match total counting method
+      const resolved = allGroupedReports.filter((group) => {
+        const status = (group.primary.status || '').toLowerCase();
         return status === 'resolved' || status === 'relayed';
       }).length;
       const active = total - resolved;
 
-      const responseValues = reports
-        .map((r) => r.responseMinutes)
-        .filter((value) => typeof value === 'number');
+      // Only calculate average from resolved/relayed reports that have valid response times
+      const resolvedReports = reports.filter((r) => {
+        const status = (r.status || '').toLowerCase();
+        return status === 'resolved' || status === 'relayed';
+      });
+
+      const responseValues = resolvedReports
+        .map((r) => {
+          // If responseMinutes is already calculated, use it
+          if (typeof r.responseMinutes === 'number' && r.responseMinutes >= 0) {
+            return r.responseMinutes;
+          }
+          // Otherwise, try to calculate from raw data
+          const raw = rawReports[r.id] || {};
+          const timestamp = Number(raw.timestamp) || r.rawTimestamp;
+          const closedAt = Number(raw.closedAt) || null;
+          const lastUpdatedAt = Number(raw.lastUpdatedAt) || null;
+          
+          // Use closedAt if available, otherwise use lastUpdatedAt for resolved/relayed reports
+          const endTime = closedAt || (lastUpdatedAt && (raw.status || '').toLowerCase() === 'resolved' || (raw.status || '').toLowerCase() === 'relayed' ? lastUpdatedAt : null);
+          
+          if (endTime && timestamp) {
+            const minutes = Math.round((endTime - timestamp) / 60000);
+            return minutes >= 0 ? minutes : null;
+          }
+          return null;
+        })
+        .filter((value) => typeof value === 'number' && value >= 0);
 
       const average =
         responseValues.length > 0
@@ -553,7 +541,7 @@
       if (stats.total) stats.total.textContent = total;
       if (stats.resolved) stats.resolved.textContent = resolved;
       if (stats.active) stats.active.textContent = active;
-      if (stats.average) stats.average.textContent = responseValues.length ? `${average} min` : '0 min';
+      if (stats.average) stats.average.textContent = responseValues.length > 0 ? `${average} min` : '0 min';
     }
 
 
@@ -724,7 +712,6 @@
       const closedByEl = document.getElementById('details-closed-by');
       const updatedByEl = document.getElementById('details-updated-by');
       const updatedAtEl = document.getElementById('details-updated-at');
-      const notesEl = document.getElementById('details-notes');
 
       if (reportIdEl) reportIdEl.value = report.id || 'N/A';
       if (statusEl) statusEl.value = formatStatusLabel(report.status) || 'N/A';
@@ -746,7 +733,6 @@
       if (closedByEl) closedByEl.value = escapeHtml(report.closedBy || '—');
       if (updatedByEl) updatedByEl.value = escapeHtml(report.lastUpdatedBy || '—');
       if (updatedAtEl) updatedAtEl.value = report.lastUpdatedAt || '—';
-      if (notesEl) notesEl.value = escapeHtml(report.notes || '—');
 
       // Load and display report photo
       const photoUrl = report.photo || '';
@@ -1051,7 +1037,6 @@
       updateResponderOptions(assignedResponderUids);
       
       updateVehicleOptions(raw.assignedVehicle || '');
-      manageNotesInput.value = '';
       toggleVehicleDropdown(); // Disable vehicle dropdown if status is "received"
       toggleResponderDropdown(); // Disable responder dropdown if status is "received"
       manageModal.hidden = false;
@@ -1110,12 +1095,19 @@
       }
       const fullAddress = addressParts.length ? addressParts.join(', ') : 'N/A';
 
+      // Get latitude and longitude
+      const latitude = (function(){ const v = parseFloat(raw.latitude ?? raw.lat); return isFinite(v) ? v : null; })();
+      const longitude = (function(){ const v = parseFloat(raw.longitude ?? raw.lng); return isFinite(v) ? v : null; })();
+
       return {
         id: reportId,
         type: raw.emergencyType || raw.type || 'General',
         description: raw.description || raw.desc || 'No description provided',
         address: fullAddress,
+        street: cleanStreet, // Include street separately for location display
         landmark: raw.landmark || '',
+        latitude: latitude,
+        longitude: longitude,
         reporter: raw.userName || raw.reportedByName || raw.by || '',
         responder: primaryResponder,
         responderUid: assignedResponderUids.length > 0 ? assignedResponderUids[0] : null,
@@ -1385,8 +1377,6 @@
       const assignedResponderNames = selectedResponderUids
         .map(uid => respondersMap[uid]?.name)
         .filter(name => name);
-      
-      const note = manageNotesInput.value.trim();
 
       const actorName = await resolveUserDisplayName(actor);
 
@@ -1423,10 +1413,6 @@
         updates.closedAt = null;
       }
 
-      if (note) {
-        updates.notes = note;
-      }
-
       try {
         await update(ref(realtimeDb, `reports/${reportId}`), updates);
 
@@ -1449,9 +1435,6 @@
         
         if ((raw.assignedVehicle || '') !== assignedVehicle) {
           changeDetails.push(`Vehicle: "${raw.assignedVehicle || 'None'}" → "${assignedVehicle || 'None'}"`);
-        }
-        if (note) {
-          changeDetails.push(`Note: ${note}`);
         }
 
         await set(historyRef, {
@@ -1493,7 +1476,6 @@
               reportId: reportId,
               reportData: { ...raw, ...updates },
               assignedVehicle: assignedVehicle,
-              note: note,
               dispatchedBy: actorName,
               dispatchedAt: now
             });
@@ -1501,7 +1483,6 @@
         }
 
         manageModal.hidden = true;
-        manageNotesInput.value = '';
       } catch (error) {
         console.error('Error updating report:', error);
         alert('Failed to update report. Please try again.');
@@ -1511,13 +1492,25 @@
     function mapReport(id, raw) {
       const timestamp = Number(raw.timestamp) || Date.now();
       const closedAt = Number(raw.closedAt) || null;
+      const lastUpdatedAt = Number(raw.lastUpdatedAt) || null;
+      const status = (raw.status || '').toLowerCase();
 
-      const responseMinutes =
-        typeof raw.responseTimeMinutes === 'number'
-          ? raw.responseTimeMinutes
-          : closedAt
-          ? Math.round((closedAt - timestamp) / 60000)
-          : null;
+      // Calculate response minutes
+      let responseMinutes = null;
+      if (typeof raw.responseTimeMinutes === 'number') {
+        responseMinutes = raw.responseTimeMinutes;
+      } else if (closedAt) {
+        // Use closedAt if available
+        responseMinutes = Math.round((closedAt - timestamp) / 60000);
+      } else if ((status === 'resolved' || status === 'relayed') && lastUpdatedAt) {
+        // For resolved/relayed reports without closedAt, use lastUpdatedAt as fallback
+        responseMinutes = Math.round((lastUpdatedAt - timestamp) / 60000);
+      }
+      
+      // Ensure responseMinutes is valid (not negative)
+      if (responseMinutes !== null && responseMinutes < 0) {
+        responseMinutes = null;
+      }
 
       // Handle multiple responders (array) or single responder (backward compatibility)
       const assignedResponders = raw.assignedResponders || 
@@ -1593,7 +1586,6 @@
         photo: raw.photoUri || raw.photoUrl || raw.photo || '',
         reportedBy: reportedBy || (reportedByUid ? 'Loading...' : 'Unknown'),
         reportedByUid: reportedByUid,
-        notes: raw.residentNotes || raw.notes || '',
         closedBy: raw.closedBy || raw.closedByName || '',
         lastUpdatedBy: raw.lastUpdatedBy || raw.lastUpdatedByName || '',
         timestamp: new Date(timestamp).toLocaleString(),
@@ -1656,11 +1648,20 @@
             if (name) return name;
           }
           
+          // Search in responder collection (responders might close reports)
+          const responderQuery = query(collection(db, 'responder'), where('email', '==', uidOrEmail));
+          const responderSnapshot = await getDocs(responderQuery);
+          if (!responderSnapshot.empty) {
+            const data = responderSnapshot.docs[0].data();
+            const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || data.fullName;
+            if (name) return name;
+          }
+          
           // If no name found, return email as fallback
           return uidOrEmail;
         }
         
-        // If it's a UID, try direct lookup
+        // If it's a UID, try direct lookup - check all collections
         const adminDoc = await getDoc(doc(db, 'admin', uidOrEmail));
         if (adminDoc.exists()) {
           const data = adminDoc.data();
@@ -1675,6 +1676,12 @@
         if (residentDoc.exists()) {
           const data = residentDoc.data();
           return `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || uidOrEmail;
+        }
+        // Check responder collection (responders might close reports)
+        const responderDoc = await getDoc(doc(db, 'responder', uidOrEmail));
+        if (responderDoc.exists()) {
+          const data = responderDoc.data();
+          return `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.lastName || data.firstName || data.fullName || uidOrEmail;
         }
       } catch (error){
         console.error('Failed to resolve user name for', uidOrEmail, error);
