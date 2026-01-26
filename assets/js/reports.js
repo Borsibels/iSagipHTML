@@ -837,7 +837,8 @@
             uid: uid,
             name: online.name || uid,
             email: '',
-            status: 'active'
+            status: 'active',
+            responderType: online.responderType || online.type || ''
           };
         }
       });
@@ -862,7 +863,8 @@
             uid: resolvedUid,
             name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.fullName || 'Unknown',
             email: data.email || '',
-            status: data.status || 'active'
+            status: data.status || 'active',
+            responderType: data.responderType || data.specialty || data.type || ''
           };
         });
         mergeOnlineRespondersIntoMap();
@@ -1009,7 +1011,11 @@
         
         const label = document.createElement('span');
         const responderName = responder.name || onlineData?.name || uid;
-        label.textContent = responderName + (isOccupied ? ' (Occupied)' : '');
+        const responderType = responder.responderType || onlineData?.responderType || '';
+        const displayText = responderType 
+          ? `${responderName} (${responderType})` 
+          : responderName;
+        label.textContent = displayText + (isOccupied ? ' - Occupied' : '');
         label.style.cssText = 'font-size: 14px; color: var(--text); flex: 1;';
         
         // Add online indicator badge
@@ -1375,7 +1381,12 @@
       }
       
       const assignedResponderNames = selectedResponderUids
-        .map(uid => respondersMap[uid]?.name)
+        .map(uid => {
+          const responder = respondersMap[uid];
+          if (!responder || !responder.name) return null;
+          const responderType = responder.responderType || '';
+          return responderType ? `${responder.name} (${responderType})` : responder.name;
+        })
         .filter(name => name);
 
       const actorName = await resolveUserDisplayName(actor);
