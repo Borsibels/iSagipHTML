@@ -8,7 +8,7 @@
   </head>
   <body class="bg-app">
     <header class="topbar">
-      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
       <button class="btn btn-small btn-outline" id="logout">Logout</button>
     </header>
 
@@ -18,10 +18,12 @@
         <nav class="menu" id="sidebar-menu">
           <a class="menu-item active" href="dashboard.html">Dashboard</a>
           <a class="menu-item" href="reports.html">Reports</a>
-          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="reports-history.html">History</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
-          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
-          <a class="menu-item" href="register-resident.html">Resident Registration</a>
+          <a class="menu-item" href="staff-management.html">Staff Management</a>
+          <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
+          <a class="menu-item" href="mass-register-residents.html">Mass Resident Registration</a>
           <a class="menu-item" href="settings.html">Settings</a>
         </nav>
       </aside>
@@ -36,7 +38,7 @@
           <div class="filters" style="align-items:end;">
             <label style="flex:1;">
               <span>Search Requests</span>
-              <input id="pending-search" class="input" type="search" placeholder="Search by username, name, or email" />
+              <input id="pending-search" class="input" type="search" placeholder="Search by name or email" />
             </label>
             <label>
               <span>Sort By</span>
@@ -70,7 +72,7 @@
           <div class="filters" style="align-items:end;">
             <label style="flex:1;">
               <span>Search Residents</span>
-              <input id="approved-search" class="input" type="search" placeholder="Search by username, name, or email" />
+              <input id="approved-search" class="input" type="search" placeholder="Search by name or email" />
             </label>
             <label>
               <span>Status Filter</span>
@@ -84,7 +86,6 @@
 
           <div class="table res-table" style="margin-top:8px;">
             <div class="t-head t-row">
-              <div>Username</div>
               <div>Name</div>
               <div>Email</div>
               <div>Contact</div>
@@ -102,28 +103,33 @@
 
     <!-- Review Request Modal -->
     <div class="modal" id="review-modal" hidden>
-      <div class="modal-dialog" style="max-width:900px;">
+      <div class="modal-dialog" style="max-width:1200px;">
         <div class="modal-header">
           <div class="modal-title">Review Registration Request</div>
           <button class="modal-close" data-close>×</button>
         </div>
         <div class="modal-body">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-            <!-- Left Column: Personal Information -->
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+            <!-- Left Column: All Information -->
             <div>
-              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary);">Personal Information</h4>
-              <div class="form-grid" style="grid-template-columns: 1fr;">
-                <label>
-                  <span>Username</span>
-                  <input id="review-username" class="input" readonly />
-                </label>
+              <!-- Personal Information -->
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Personal Information</h4>
+              <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
                 <label>
                   <span>Email</span>
                   <input id="review-email" class="input" readonly />
                 </label>
                 <label>
-                  <span>Full Name</span>
-                  <input id="review-name" class="input" readonly />
+                  <span>First Name</span>
+                  <input id="review-firstname" class="input" readonly />
+                </label>
+                <label>
+                  <span>Middle Name</span>
+                  <input id="review-middlename" class="input" readonly />
+                </label>
+                <label>
+                  <span>Last Name</span>
+                  <input id="review-lastname" class="input" readonly />
                 </label>
                 <label>
                   <span>Gender</span>
@@ -131,19 +137,75 @@
                 </label>
                 <label>
                   <span>Birth Date</span>
-                  <input id="review-birth" class="input" readonly />
+                  <input id="review-birthdate" class="input" readonly />
                 </label>
                 <label>
-                  <span>Contact Number</span>
-                  <input id="review-contact" class="input" readonly />
+                  <span>Status</span>
+                  <input id="review-status" class="input" readonly />
+                </label>
+              </div>
+
+              <!-- Contact Information -->
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Contact Information</h4>
+              <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+                <label>
+                  <span>Mobile Number</span>
+                  <input id="review-mobilenumber" class="input" readonly />
                 </label>
                 <label>
-                  <span>Address</span>
-                  <input id="review-address" class="input" readonly />
+                  <span>Emergency Contact</span>
+                  <input id="review-emergencycontact" class="input" readonly />
+                </label>
+                <label style="grid-column: 1/-1;">
+                  <span>Emergency Contact Number</span>
+                  <input id="review-emergencycontactnumber" class="input" readonly />
+                </label>
+              </div>
+
+              <!-- Address Information -->
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Address Information</h4>
+              <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+                <label style="grid-column: 1/-1;">
+                  <span>Home Address</span>
+                  <input id="review-homeaddress" class="input" readonly />
                 </label>
                 <label>
-                  <span>Request Date</span>
-                  <input id="review-date" class="input" readonly />
+                  <span>Barangay</span>
+                  <input id="review-barangay" class="input" readonly />
+                </label>
+                <label>
+                  <span>City</span>
+                  <input id="review-city" class="input" readonly />
+                </label>
+                <label>
+                  <span>Province</span>
+                  <input id="review-province" class="input" readonly />
+                </label>
+                <label>
+                  <span>ZIP Code</span>
+                  <input id="review-zipcode" class="input" readonly />
+                </label>
+              </div>
+
+              <!-- Family Information -->
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Family Information</h4>
+              <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+                <label>
+                  <span>Father's Name</span>
+                  <input id="review-fathername" class="input" readonly />
+                </label>
+                <label>
+                  <span>Mother's Name</span>
+                  <input id="review-mothername" class="input" readonly />
+                </label>
+              </div>
+
+              <!-- Request Information -->
+              <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Request Information</h4>
+              <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>
+                  <span>Requested At</span>
+                  <input id="review-requestedat" class="input" readonly />
                 </label>
               </div>
             </div>
@@ -190,39 +252,109 @@
 
     <!-- Edit Resident Modal -->
     <div class="modal" id="res-edit-modal" hidden>
-      <div class="modal-dialog">
+      <div class="modal-dialog" style="max-width:900px;">
         <div class="modal-header">
           <div class="modal-title">Edit Resident</div>
           <button class="modal-close" data-close>×</button>
         </div>
-        <div class="modal-body">
-          <div class="form-grid">
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          <!-- Personal Information -->
+          <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Personal Information</h4>
+          <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+            <label>
+              <span>Email</span>
+              <input id="edit-email" class="input" />
+            </label>
             <label>
               <span>First Name</span>
               <input id="edit-first" class="input" />
             </label>
             <label>
+              <span>Middle Name</span>
+              <input id="edit-middle" class="input" />
+            </label>
+            <label>
               <span>Last Name</span>
               <input id="edit-last" class="input" />
             </label>
-            <label style="grid-column:1/-1;">
-              <span>Email</span>
-              <input id="edit-email" class="input" />
+            <label>
+              <span>Gender</span>
+              <select id="edit-gender" class="input">
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
             </label>
-            <label style="grid-column:1/-1;">
-              <span>Contact Number</span>
-              <input id="edit-contact" class="input" />
+            <label>
+              <span>Birth Date</span>
+              <input id="edit-birthdate" class="input" type="date" />
             </label>
-            <label style="grid-column:1/-1;">
-              <span>Address</span>
-              <input id="edit-address" class="input" />
-            </label>
-            <label style="grid-column:1/-1;">
+            <label>
               <span>Status</span>
               <select id="edit-status" class="input">
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
+            </label>
+          </div>
+
+          <!-- Contact Information -->
+          <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Contact Information</h4>
+          <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+            <label>
+              <span>Mobile Number</span>
+              <input id="edit-mobilenumber" class="input" />
+            </label>
+            <label>
+              <span>Contact Number</span>
+              <input id="edit-contact" class="input" />
+            </label>
+            <label>
+              <span>Emergency Contact</span>
+              <input id="edit-emergencycontact" class="input" />
+            </label>
+            <label>
+              <span>Emergency Contact Number</span>
+              <input id="edit-emergencycontactnumber" class="input" />
+            </label>
+          </div>
+
+          <!-- Address Information -->
+          <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Address Information</h4>
+          <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+            <label style="grid-column: 1/-1;">
+              <span>Home Address</span>
+              <input id="edit-homeaddress" class="input" />
+            </label>
+            <label>
+              <span>Barangay</span>
+              <input id="edit-barangay" class="input" />
+            </label>
+            <label>
+              <span>City</span>
+              <input id="edit-city" class="input" />
+            </label>
+            <label>
+              <span>Province</span>
+              <input id="edit-province" class="input" />
+            </label>
+            <label>
+              <span>ZIP Code</span>
+              <input id="edit-zipcode" class="input" />
+            </label>
+          </div>
+
+          <!-- Family Information -->
+          <h4 style="margin: 0 0 16px; font-size: 16px; color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">Family Information</h4>
+          <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+            <label>
+              <span>Father's Name</span>
+              <input id="edit-fathername" class="input" />
+            </label>
+            <label>
+              <span>Mother's Name</span>
+              <input id="edit-mothername" class="input" />
             </label>
           </div>
         </div>
@@ -253,6 +385,7 @@
       </div>
     </div>
 
+    <script src="assets/js/isagip-config.js"></script>
     <!-- Firebase Initialization -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
@@ -260,15 +393,11 @@
       import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
       import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
-        authDomain: "isagip-752d1.firebaseapp.com",
-        projectId: "isagip-752d1",
-        storageBucket: "isagip-752d1.firebasestorage.app",
-        messagingSenderId: "193473482801",
-        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
-        measurementId: "G-XBKHVXJYB6"
-      };
+      const cfg = window.__ISAGIP_CONFIG__;
+      if (!cfg || !cfg.firebase || !cfg.firebase.apiKey) {
+        console.error('iSagip: Copy assets/js/isagip-config.example.js to assets/js/isagip-config.js and set your keys.');
+      }
+      const firebaseConfig = (cfg && cfg.firebase) ? cfg.firebase : {};
 
       const app = initializeApp(firebaseConfig);
       const analytics = getAnalytics(app);
@@ -285,6 +414,16 @@
       window.dispatchEvent(new Event('firebaseReady'));
     </script>
     
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
+    <!-- Core modules (load in order) -->
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/navigation.js"></script>
+    <!-- Page-specific modules -->
+    <script src="assets/js/resident-management.js"></script>
+    <!-- Legacy code (will be removed after cleanup) -->
     <script src="assets/js/script.js"></script>
   </body>
   </html>

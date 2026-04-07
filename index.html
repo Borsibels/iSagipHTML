@@ -26,16 +26,13 @@
           <button type="submit" class="btn btn-primary" id="login-button">Login</button>
         </form>
 
-        <div class="live-viewing-section">
-          <button type="button" class="btn btn-secondary" id="live-viewing-button">Reports Live Viewing</button>
-        </div>
-
         <div class="links">
           <a href="#" class="muted">Forgot Password?</a>
         </div>
       </section>
     </main>
 
+    <script src="assets/js/isagip-config.js"></script>
     <!-- Firebase Initialization -->
     <script type="module">
       // Import the functions you need from the SDKs you need
@@ -44,16 +41,11 @@
       import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
       import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-      // Your web app's Firebase configuration
-      const firebaseConfig = {
-        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
-        authDomain: "isagip-752d1.firebaseapp.com",
-        projectId: "isagip-752d1",
-        storageBucket: "isagip-752d1.firebasestorage.app",
-        messagingSenderId: "193473482801",
-        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
-        measurementId: "G-XBKHVXJYB6"
-      };
+      const cfg = window.__ISAGIP_CONFIG__;
+      if (!cfg || !cfg.firebase || !cfg.firebase.apiKey) {
+        console.error('iSagip: Copy assets/js/isagip-config.example.js to assets/js/isagip-config.js and set your keys.');
+      }
+      const firebaseConfig = (cfg && cfg.firebase) ? cfg.firebase : {};
 
       // Initialize Firebase
       const app = initializeApp(firebaseConfig);
@@ -70,6 +62,11 @@
       console.log('Firebase initialized successfully');
     </script>
     
+    <!-- Core modules (load in order) -->
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <!-- Note: navigation.js not needed on login page -->
+    <!-- Legacy script.js still needed for any remaining functionality -->
     <script src="assets/js/script.js"></script>
   </body>
   </html>

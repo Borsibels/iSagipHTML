@@ -8,7 +8,7 @@
   </head>
   <body class="bg-app">
     <header class="topbar">
-      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
       <button class="btn btn-small btn-outline" id="logout">Logout</button>
     </header>
 
@@ -18,10 +18,10 @@
         <nav class="menu" id="sidebar-menu">
           <a class="menu-item" href="dashboard.html">Dashboard</a>
           <a class="menu-item" href="reports.html">Reports</a>
-          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="staff-management.html">Staff Management</a>
           <a class="menu-item active" href="#">Barangay Staff Registration</a>
-          <a class="menu-item" href="register-resident.html">Resident Registration</a>
           <a class="menu-item" href="settings.html">Settings</a>
         </nav>
       </aside>
@@ -30,7 +30,9 @@
         <section class="card">
           <h3 class="section-title">Responder / Barangay Staff Registration</h3>
           <form id="register-form" class="form" style="max-width:720px; margin:0 auto;">
-            <div class="form-grid">
+            
+            <!-- ROLE SELECTION -->
+            <div class="form-grid" style="margin-bottom: 24px;">
               <label>
                 <span>Role *</span>
                 <select id="reg-role" class="input">
@@ -46,55 +48,120 @@
                   <option>Tanod</option>
                 </select>
               </label>
+            </div>
 
+            <!-- BASIC INFO OF USER -->
+            <h4 style="margin-top: 24px; margin-bottom: 16px; color: var(--text-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">BASIC INFO OF USER</h4>
+            <div class="form-grid">
+              <label>
+                <span>First Name *</span>
+                <input id="reg-firstname" class="input" placeholder="Enter first name" />
+              </label>
+              <label>
+                <span>Middle Name</span>
+                <input id="reg-middlename" class="input" placeholder="Enter middle name" />
+              </label>
+              <label>
+                <span>Last Name *</span>
+                <input id="reg-lastname" class="input" placeholder="Enter last name" />
+              </label>
+              <label>
+                <span>Age / Date of Birth *</span>
+                <input id="reg-birth" class="input" type="date" />
+              </label>
+              <label>
+                <span>Sex / Gender</span>
+                <select id="reg-gender" class="input">
+                  <option value="">Select gender</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Prefer not to say</option>
+                </select>
+              </label>
+            </div>
+
+            <!-- IMMEDIATE FAMILY BACKGROUND INFO -->
+            <h4 style="margin-top: 32px; margin-bottom: 16px; color: var(--text-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">IMMEDIATE FAMILY BACKGROUND INFO</h4>
+            <div class="form-grid">
+              <label>
+                <span>Father's Full Name *</span>
+                <input id="reg-father" class="input" placeholder="Enter father's full name" />
+              </label>
+              <label>
+                <span>Mother's Full Name / Maiden's Name *</span>
+                <input id="reg-mother" class="input" placeholder="Enter mother's full name" />
+              </label>
+            </div>
+
+            <!-- ADDRESS INFO -->
+            <h4 style="margin-top: 32px; margin-bottom: 16px; color: var(--text-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">ADDRESS INFO</h4>
+            <div class="form-grid">
+              <label style="grid-column: 1/-1;">
+                <span>Home Address (Complete) *</span>
+                <input id="reg-address" class="input" placeholder="Enter complete home address" />
+              </label>
+              <label>
+                <span>Barangay *</span>
+                <input id="reg-barangay" class="input" placeholder="Enter barangay" />
+              </label>
+              <label>
+                <span>City / Municipality *</span>
+                <input id="reg-city" class="input" placeholder="Enter city or municipality" />
+              </label>
+              <label>
+                <span>Province *</span>
+                <input id="reg-province" class="input" placeholder="Enter province" />
+              </label>
+              <label>
+                <span>ZIP Code *</span>
+                <input id="reg-zip" class="input" placeholder="Enter ZIP code" />
+              </label>
+            </div>
+
+            <!-- CONTACT INFO -->
+            <h4 style="margin-top: 32px; margin-bottom: 16px; color: var(--text-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">CONTACT INFO</h4>
+            <div class="form-grid">
+              <label>
+                <span>Mobile Number *</span>
+                <input id="reg-mobile" class="input" placeholder="Enter mobile number" />
+              </label>
+              <label>
+                <span>Email Address (optional)</span>
+                <input id="reg-email" class="input" type="email" placeholder="Enter email address" />
+              </label>
+            </div>
+
+            <!-- EMERGENCY CONTACT PERSON -->
+            <h4 style="margin-top: 32px; margin-bottom: 16px; color: var(--text-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">EMERGENCY CONTACT PERSON</h4>
+            <div class="form-grid">
+              <label>
+                <span>Emergency Contact Person *</span>
+                <input id="reg-emergency-name" class="input" placeholder="Enter emergency contact name" />
+              </label>
+              <label>
+                <span>Emergency Contact Number *</span>
+                <input id="reg-emergency-number" class="input" placeholder="Enter emergency contact number" />
+              </label>
+            </div>
+
+            <!-- ACCOUNT CREDENTIALS -->
+            <h4 style="margin-top: 32px; margin-bottom: 16px; color: var(--text-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">ACCOUNT CREDENTIALS</h4>
+            <div class="form-grid">
               <label>
                 <span>Username *</span>
-                <input id="reg-username" class="input" />
+                <input id="reg-username" class="input" placeholder="Enter username" />
               </label>
-              <label>
-                <span>Email *</span>
-                <input id="reg-email" class="input" />
-              </label>
-
               <label>
                 <span>Password *</span>
-                <input id="reg-password" class="input" type="password" />
+                <input id="reg-password" class="input" type="password" placeholder="Enter password" />
               </label>
               <label>
                 <span>Confirm Password *</span>
-                <input id="reg-password2" class="input" type="password" />
-              </label>
-
-              <label>
-                <span>First name *</span>
-                <input id="reg-first" class="input" />
-              </label>
-              <label>
-                <span>Middle name</span>
-                <input id="reg-middle" class="input" />
-              </label>
-              <label>
-                <span>Last name *</span>
-                <input id="reg-last" class="input" />
-              </label>
-              <label>
-                <span>Age *</span>
-                <input id="reg-age" class="input" />
-              </label>
-              <label>
-                <span>Birth date *</span>
-                <input id="reg-birth" class="input" placeholder="mm/dd/yyyy" />
-              </label>
-              <label>
-                <span>Contact Number *</span>
-                <input id="reg-contact" class="input" />
-              </label>
-              <label style="grid-column:1/-1;">
-                <span>Address *</span>
-                <input id="reg-address" class="input" />
+                <input id="reg-password2" class="input" type="password" placeholder="Confirm password" />
               </label>
             </div>
-            <div style="margin-top:16px; display:grid; place-items:center;">
+
+            <div style="margin-top:32px; display:grid; place-items:center;">
               <button class="btn btn-primary" id="reg-submit" type="submit">REGISTER</button>
             </div>
           </form>
@@ -102,6 +169,7 @@
       </main>
     </div>
 
+    <script src="assets/js/isagip-config.js"></script>
     <!-- Firebase Initialization -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
@@ -109,15 +177,11 @@
       import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
       import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
-        authDomain: "isagip-752d1.firebaseapp.com",
-        projectId: "isagip-752d1",
-        storageBucket: "isagip-752d1.firebasestorage.app",
-        messagingSenderId: "193473482801",
-        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
-        measurementId: "G-XBKHVXJYB6"
-      };
+      const cfg = window.__ISAGIP_CONFIG__;
+      if (!cfg || !cfg.firebase || !cfg.firebase.apiKey) {
+        console.error('iSagip: Copy assets/js/isagip-config.example.js to assets/js/isagip-config.js and set your keys.');
+      }
+      const firebaseConfig = (cfg && cfg.firebase) ? cfg.firebase : {};
 
       const app = initializeApp(firebaseConfig);
       const analytics = getAnalytics(app);

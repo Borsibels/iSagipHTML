@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ambulance Status</title>
+    <title>Manage Vehicle</title>
     <link rel="stylesheet" href="assets/css/styles.css" />
   </head>
   <body class="bg-app page-enter">
     <header class="topbar">
-      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
       <button class="btn btn-small btn-outline" id="logout">Logout</button>
     </header>
 
@@ -18,21 +18,155 @@
         <nav class="menu" id="sidebar-menu">
           <a class="menu-item active" href="dashboard.html">Dashboard</a>
           <a class="menu-item" href="reports.html">Reports</a>
-          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="reports-history.html">History</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
-          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
+          <a class="menu-item" href="staff-management.html">Staff Management</a>
+          <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
+          <a class="menu-item" href="mass-register-residents.html">Mass Resident Registration</a>
           <a class="menu-item" href="register-resident.html">Resident Registration</a>
           <a class="menu-item" href="settings.html">Settings</a>
       </aside>
 
       <main class="content">
         <section class="card">
-          <h3 class="section-title">Ambulance Status Management</h3>
+          <h3 class="section-title">Ambulance Fleet Overview</h3>
+          
+          <div class="stats ambulance-summary">
+            <div class="stat">
+              <div class="stat-title">Total Units</div>
+              <div class="stat-value" id="amb-total">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Available</div>
+              <div class="stat-value" id="amb-available">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">In Use</div>
+              <div class="stat-value" id="amb-inuse">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Maintenance</div>
+              <div class="stat-value" id="amb-maintenance">0</div>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;flex-wrap:wrap;gap:12px;">
+            <h3 class="section-title" style="margin:0;">Vehicle Management</h3>
+            <button class="btn btn-primary" id="add-vehicle-btn" style="white-space:nowrap;">+ Add Vehicle</button>
+          </div>
           <div class="ambulance-grid" id="ambulance-grid"></div>
         </section>
       </main>
     </div>
 
+    <div class="modal" id="add-vehicle-modal" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title">Add New Vehicle</h3>
+          <button class="modal-close" data-close>&times;</button>
+        </div>
+        <form id="add-vehicle-form">
+          <div class="modal-body">
+            <div class="amb-form-section">
+              <h4>Vehicle Information</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Vehicle Name <span style="color:#ef4444;">*</span></span>
+                  <input type="text" id="add-vehicle-name" class="input" placeholder="e.g., Ambulance 1" required />
+                </label>
+                <label>
+                  <span class="label">Callsign</span>
+                  <input type="text" id="add-vehicle-callsign" class="input" placeholder="e.g., Alpha-1" />
+                </label>
+                <label>
+                  <span class="label">Initial Location</span>
+                  <input type="text" id="add-vehicle-location" class="input" placeholder="e.g., Central Station Garage" value="Central Station Garage" />
+                </label>
+                <label>
+                  <span class="label">Initial Status</span>
+                  <select id="add-vehicle-status" class="input">
+                    <option value="AVAILABLE">Available</option>
+                    <option value="MAINTENANCE">Maintenance</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-close>Cancel</button>
+            <button type="submit" class="btn btn-primary">Add Vehicle</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="ambulance-modal" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title" id="amb-form-title">Manage Ambulance</h3>
+          <button class="modal-close" data-close>&times;</button>
+        </div>
+        <form id="ambulance-form">
+          <div class="modal-body">
+            <div class="amb-form-section">
+              <h4>General Details</h4>
+              <div class="form-grid">
+                <div class="amb-responders-block" style="grid-column:1/-1;">
+                  <details id="amb-responders-dropdown">
+                    <summary>Responders</summary>
+                    <ul class="amb-responders-list" id="amb-responders-list">
+                      <li class="muted">No responders recorded</li>
+                    </ul>
+                  </details>
+                </div>
+              </div>
+            </div>
+
+            <div class="amb-form-section">
+              <h4>Current Assignment</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Report ID</span>
+                  <input type="text" id="amb-report-id" class="input" placeholder="REP-XXXX" readonly />
+                </label>
+                <label>
+                  <span class="label">Emergency Type</span>
+                  <input type="text" id="amb-report-type" class="input" placeholder="Medical, Fire, etc." readonly />
+                </label>
+                <label>
+                  <span class="label">Incident Location</span>
+                  <input type="text" id="amb-report-address" class="input" placeholder="Street / Landmark" readonly />
+                </label>
+              </div>
+            </div>
+
+            <div class="amb-form-section">
+              <h4>Maintenance</h4>
+              <div class="form-grid">
+                <label>
+                  <span class="label">Maintenance Note</span>
+                  <input type="text" id="amb-maint-note" class="input" placeholder="e.g., Radiator replacement" />
+                </label>
+                <label>
+                  <span class="label">Estimated Return</span>
+                  <input type="datetime-local" id="amb-maint-eta" class="input" />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer" style="display: flex; justify-content: space-between;">
+            <button type="button" class="btn btn-outline" id="remove-vehicle-btn" style="background: #ef4444; color: white; border-color: #ef4444;">Remove Vehicle</button>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-outline" data-close>Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="assets/js/isagip-config.js"></script>
     <!-- Firebase Initialization -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
@@ -40,15 +174,11 @@
       import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
       import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
-        authDomain: "isagip-752d1.firebaseapp.com",
-        projectId: "isagip-752d1",
-        storageBucket: "isagip-752d1.firebasestorage.app",
-        messagingSenderId: "193473482801",
-        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
-        measurementId: "G-XBKHVXJYB6"
-      };
+      const cfg = window.__ISAGIP_CONFIG__;
+      if (!cfg || !cfg.firebase || !cfg.firebase.apiKey) {
+        console.error('iSagip: Copy assets/js/isagip-config.example.js to assets/js/isagip-config.js and set your keys.');
+      }
+      const firebaseConfig = (cfg && cfg.firebase) ? cfg.firebase : {};
 
       const app = initializeApp(firebaseConfig);
       const analytics = getAnalytics(app);
@@ -62,6 +192,13 @@
       console.log('Firebase initialized successfully');
     </script>
     
+    <!-- Core modules (load in order) -->
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/navigation.js"></script>
+    <!-- Page-specific modules -->
+    <script src="assets/js/ambulance.js"></script>
+    <!-- Legacy code (will be removed after cleanup) -->
     <script src="assets/js/script.js"></script>
   </body>
   </html>

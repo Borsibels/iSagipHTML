@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mass Resident Registration</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+    <style>
+      .upload-section {
+        border: 2px dashed var(--outline);
+        border-radius: 12px;
+        padding: 32px;
+        text-align: center;
+        margin-bottom: 24px;
+        background: var(--card);
+        transition: border-color 0.3s ease;
+      }
+      .upload-section:hover {
+        border-color: var(--primary);
+      }
+      .upload-section.dragover {
+        border-color: var(--primary);
+        background: rgba(29, 114, 243, 0.05);
+      }
+      .csv-preview {
+        margin-top: 24px;
+        max-height: 400px;
+        overflow: auto;
+        border: 1px solid var(--outline);
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .csv-preview table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .csv-preview th,
+      .csv-preview td {
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--outline);
+        font-size: 12px;
+      }
+      .csv-preview th {
+        background: var(--bg);
+        font-weight: 700;
+        position: sticky;
+        top: 0;
+      }
+      .csv-upload-section {
+        margin-bottom: 32px;
+      }
+      .manual-entry-section {
+        margin-top: 32px;
+      }
+      .entry-row {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr 1fr 1fr 120px 1fr 1.5fr auto;
+        gap: 12px;
+        align-items: end;
+        margin-bottom: 12px;
+        padding: 16px;
+        background: var(--card);
+        border: 1px solid var(--outline);
+        border-radius: 8px;
+      }
+      .entry-row .input {
+        margin: 0;
+      }
+      .remove-row-btn {
+        background: #ef4444;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .remove-row-btn:hover {
+        background: #dc2626;
+      }
+      .add-row-btn {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-weight: 600;
+        margin-top: 12px;
+      }
+      .add-row-btn:hover {
+        background: var(--primary-dark);
+      }
+      .progress-section {
+        margin-top: 24px;
+        padding: 16px;
+        background: var(--card);
+        border: 1px solid var(--outline);
+        border-radius: 8px;
+        display: none;
+      }
+      .progress-section.active {
+        display: block;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: var(--outline);
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 12px 0;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .results-summary {
+        margin-top: 16px;
+        padding: 16px;
+        background: var(--bg);
+        border-radius: 8px;
+      }
+      .result-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--outline);
+      }
+      .result-item:last-child {
+        border-bottom: none;
+      }
+      .result-success {
+        color: #10b981;
+      }
+      .result-error {
+        color: #ef4444;
+      }
+      .mode-toggle {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+        background: var(--bg);
+        padding: 6px;
+        border-radius: 8px;
+      }
+      .mode-btn {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+      .mode-btn.active {
+        background: var(--primary);
+        color: white;
+      }
+      @media (max-width: 768px) {
+        .entry-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-app">
+    <header class="topbar">
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <button class="btn btn-small btn-outline" id="logout">Logout</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-brand">iSagip System Administrator</div>
+        <nav class="menu" id="sidebar-menu">
+          <a class="menu-item" href="dashboard.html">Dashboard</a>
+          <a class="menu-item" href="reports.html">Reports</a>
+          <a class="menu-item" href="reports-history.html">History</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
+          <a class="menu-item" href="resident-management.html">Resident Management</a>
+          <a class="menu-item" href="staff-management.html">Staff Management</a>
+          <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
+          <a class="menu-item active" href="mass-register-residents.html">Mass Resident Registration</a>
+          <a class="menu-item" href="settings.html">Settings</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section class="card">
+          <h3 class="section-title">Mass Resident Registration</h3>
+          <p style="color: var(--muted); margin-bottom: 24px;">
+            Register multiple residents at once using CSV upload or manual entry. 
+            Accounts will be created immediately and credentials will be sent via email.
+          </p>
+
+          <!-- Mode Toggle -->
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="csv-mode-btn" data-mode="csv">CSV Upload</button>
+            <button class="mode-btn" id="manual-mode-btn" data-mode="manual">Manual Entry</button>
+          </div>
+
+          <!-- CSV Upload Section -->
+          <div id="csv-section" class="csv-upload-section">
+            <h4 style="margin-bottom: 16px;">CSV Upload</h4>
+            <p style="color: var(--muted); margin-bottom: 16px; font-size: 14px;">
+              Upload a CSV file with resident information. 
+              <a href="resident-registration-template.csv" download style="color: var(--primary); text-decoration: underline;">Download CSV template</a>
+            </p>
+            <div class="upload-section">
+              <input type="file" id="csv-file-input" accept=".csv" style="display: none;" />
+              <label for="csv-file-input" class="btn btn-outline" style="cursor: pointer; display: inline-block;">
+                Choose CSV File
+              </label>
+              <p id="csv-file-name" style="margin-top: 12px; color: var(--muted); font-size: 14px;"></p>
+              <p style="margin-top: 8px; color: var(--muted); font-size: 12px;">or drag and drop CSV file here</p>
+            </div>
+            <div id="csv-preview" class="csv-preview" style="display: none;"></div>
+          </div>
+
+          <!-- Manual Entry Section -->
+          <div id="manual-section" class="manual-entry-section" style="display: none;">
+            <h4 style="margin-bottom: 16px;">Manual Entry</h4>
+            <div id="manual-entries">
+              <div class="entry-row">
+                <label>
+                  <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Email *</span>
+                  <input type="email" class="input entry-email" placeholder="email@example.com" required />
+                </label>
+                <label>
+                  <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Last Name *</span>
+                  <input type="text" class="input entry-last-name" placeholder="Dela Cruz" required />
+                </label>
+                <label>
+                  <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">First Name *</span>
+                  <input type="text" class="input entry-first-name" placeholder="Juan" required />
+                </label>
+                <label>
+                  <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Middle Name</span>
+                  <input type="text" class="input entry-middle-name" placeholder="Santos" />
+                </label>
+                <label>
+                  <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Gender *</span>
+                  <select class="input entry-gender" required>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </label>
+                <label>
+                  <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Birth Date *</span>
+                  <input type="date" class="input entry-birthdate" required />
+                </label>
+                <label>
+                  <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Contact *</span>
+                  <input type="tel" class="input entry-contact" placeholder="09123456789" required />
+                </label>
+                <label style="grid-column: 1/-1;">
+                  <span style="font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block;">Address *</span>
+                  <input type="text" class="input entry-address" placeholder="Street Address" required />
+                </label>
+                <button type="button" class="remove-row-btn" style="display: none;">Remove</button>
+              </div>
+            </div>
+            <button type="button" class="add-row-btn" id="add-entry-btn">+ Add Another Entry</button>
+          </div>
+
+          <!-- Progress Section -->
+          <div id="progress-section" class="progress-section">
+            <h4>Registration Progress</h4>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill" style="width: 0%;">0%</div>
+            </div>
+            <div id="progress-text" style="font-size: 14px; color: var(--muted);"></div>
+            <div id="results-summary" class="results-summary" style="display: none;"></div>
+          </div>
+
+          <!-- Submit Button -->
+          <div style="margin-top: 32px; display: grid; place-items: center;">
+            <button class="btn btn-primary" id="submit-registration" type="button" style="min-width: 200px;">
+              REGISTER ALL RESIDENTS
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="assets/js/isagip-config.js"></script>
+    <!-- Firebase Initialization -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+      const cfg = window.__ISAGIP_CONFIG__;
+      if (!cfg || !cfg.firebase || !cfg.firebase.apiKey) {
+        console.error('iSagip: Copy assets/js/isagip-config.example.js to assets/js/isagip-config.js and set your keys.');
+      }
+      const firebaseConfig = (cfg && cfg.firebase) ? cfg.firebase : {};
+
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.iSagipApp = app;
+      window.iSagipDb = db;
+      window.iSagipAuth = auth;
+      window.iSagipAnalytics = analytics;
+      console.log('Firebase initialized successfully');
+    </script>
+    
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
+    <!-- Core modules (load in order) -->
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/navigation.js"></script>
+    <!-- Page-specific modules -->
+    <script src="assets/js/mass-resident-registration.js"></script>
+    <!-- Legacy code (will be removed after cleanup) -->
+    <script src="assets/js/script.js"></script>
+  </body>
+</html>

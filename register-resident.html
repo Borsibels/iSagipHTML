@@ -8,7 +8,7 @@
   </head>
   <body class="bg-app">
     <header class="topbar">
-      <div class="brand-inline"><img class="brand-inline-logo" src="iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
+      <div class="brand-inline"><img class="brand-inline-logo" src="public/iSagipLogo.png" alt="iSagip" /><span class="brand-inline-name">Barangay 167 Emergency Response Dashboard</span></div>
       <button class="btn btn-small btn-outline" id="logout">Logout</button>
     </header>
 
@@ -18,10 +18,12 @@
         <nav class="menu" id="sidebar-menu">
           <a class="menu-item" href="dashboard.html">Dashboard</a>
           <a class="menu-item" href="reports.html">Reports</a>
-          <a class="menu-item" href="ambulance.html">Ambulance Status</a>
+          <a class="menu-item" href="reports-history.html">History</a>
+          <a class="menu-item" href="ambulance.html">Manage Vehicle</a>
           <a class="menu-item" href="resident-management.html">Resident Management</a>
-          <a class="menu-item" href="register-staff.html">Barangay Staff Registration</a>
-          <a class="menu-item active" href="#">Resident Registration</a>
+          <a class="menu-item" href="staff-management.html">Staff Management</a>
+          <a class="menu-item" href="mass-register-staff.html">Mass Staff Registration</a>
+          <a class="menu-item" href="mass-register-residents.html">Mass Resident Registration</a>
           <a class="menu-item" href="settings.html">Settings</a>
         </nav>
       </aside>
@@ -84,6 +86,7 @@
       </main>
     </div>
 
+    <script src="assets/js/isagip-config.js"></script>
     <!-- Firebase Initialization -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
@@ -91,15 +94,11 @@
       import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
       import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
-        authDomain: "isagip-752d1.firebaseapp.com",
-        projectId: "isagip-752d1",
-        storageBucket: "isagip-752d1.firebasestorage.app",
-        messagingSenderId: "193473482801",
-        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
-        measurementId: "G-XBKHVXJYB6"
-      };
+      const cfg = window.__ISAGIP_CONFIG__;
+      if (!cfg || !cfg.firebase || !cfg.firebase.apiKey) {
+        console.error('iSagip: Copy assets/js/isagip-config.example.js to assets/js/isagip-config.js and set your keys.');
+      }
+      const firebaseConfig = (cfg && cfg.firebase) ? cfg.firebase : {};
 
       const app = initializeApp(firebaseConfig);
       const analytics = getAnalytics(app);
