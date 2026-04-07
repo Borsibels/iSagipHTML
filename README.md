@@ -31,7 +31,3 @@ Web dashboard for emergency / barangay coordination: incident reports, responder
 - `mdfiles/EMAILJS_SETUP.md` — EmailJS templates and IDs  
 - `mdfiles/MASS_REGISTRATION_GUIDE.md` — mass registration flow  
 - `mdfiles/GITHUB_SETUP.md` — Git remotes and GitHub basics  
-
-## License
-
-Add a `LICENSE` file if you want to specify terms for reuse.
