@@ -6,17 +6,12 @@
 (function() {
   'use strict';
 
-  // ========================================
-  // EMAILJS CONFIGURATION
-  // ========================================
-  // EmailJS configuration for sending approval emails
-  // You can use the same template as mass registration or create a new one
-  const EMAILJS_PUBLIC_KEY = 'HdfCtAM1oRBEUuyy9'; // Same as mass registration
-  const EMAILJS_SERVICE_ID = 'service_c04v2hd'; // Same as mass registration
-  const EMAILJS_TEMPLATE_ID = 'template_gyywi28'; // You can create a separate template for resident approval or use the same one
+  var _ej = (window.__ISAGIP_CONFIG__ && window.__ISAGIP_CONFIG__.emailjs) || {};
+  const EMAILJS_PUBLIC_KEY = _ej.publicKey || 'YOUR_EMAILJS_PUBLIC_KEY';
+  const EMAILJS_SERVICE_ID = _ej.serviceId || '';
+  const EMAILJS_TEMPLATE_ID = _ej.templateResident || _ej.templateMassRegistration || '';
 
-  // Initialize EmailJS if available
-  if (typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY') {
+  if (typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY') {
     emailjs.init(EMAILJS_PUBLIC_KEY);
   }
 

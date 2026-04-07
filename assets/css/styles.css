@@ -239,6 +239,18 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .stat { border: 1px solid var(--outline); border-radius: 10px; padding: 16px; background: #fff; }
 .stat-title { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.stat-title-with-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.stat-title-with-control span { min-width: 0; }
+.stat-unit-select {
+  padding: 6px 10px;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1;
+}
+.stat-unit-select:focus { outline: 2px solid rgba(37, 99, 235, 0.35); outline-offset: 2px; }
 .stat-value { font-size: 32px; font-weight: 800; color: #2563eb; }
 .badges { display: flex; flex-wrap: wrap; gap: 8px; }
 .badge { font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 999px; }
@@ -312,7 +324,7 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 .reports-table .t-row > div a[href*="http"]:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 
 /* Reports table column sizing */
-.reports-table .t-row { grid-template-columns: 250px 180px 240px 120px 200px 160px 120px 120px 120px 200px 200px 120px 160px 140px 160px 200px 220px; }
+.reports-table .t-row { grid-template-columns: 250px 180px 240px 120px 200px 160px 120px 120px 200px 120px 120px 120px 160px 140px 160px 220px; }
 .reports-table .t-body .t-row > div { align-self: start; }
 .reports-table .reports-actions { 
   display: grid; 
@@ -357,7 +369,7 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 
 /* Allow wrapping for description and notes columns */
 .reports-table .t-row > div:nth-child(3), /* Description */
-.reports-table .t-row > div:nth-child(17) { /* Notes */
+.reports-table .t-row > div:nth-child(17) { /* Notes (legacy / other tables) */
   white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -371,7 +383,7 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 }
 
 /* Allow Timestamp and Updated At columns to show full text */
-.reports-table .t-row > div:nth-child(11), /* Timestamp */
+.reports-table .t-row > div:nth-child(9), /* Timestamp */
 .reports-table .t-row > div:nth-child(16) { /* Updated At */
   white-space: normal;
   word-wrap: break-word;
@@ -399,15 +411,26 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 }
 
 /* Badge should never be cut off */
-.reports-table .t-row > div:first-child .badge-orange {
+.reports-table .t-row > div:first-child .duplicate-badge {
   flex-shrink: 0; /* Never shrink the badge */
   white-space: nowrap;
 }
 
-/* Allow Actions column to wrap buttons */
-.reports-table .t-row > div:nth-child(10) { /* Actions */
-  white-space: normal;
-  overflow: visible;
+/* Duplicate count badge (high-contrast; avoids orange readability issues) */
+.duplicate-badge{
+  margin-left: 8px;
+  background: #1d4ed8; /* readable on light bg */
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+}
+[data-theme="dark"] .duplicate-badge{
+  background: #60a5fa;
+  color: #0b1220;
 }
 
 /* History table specific column sizing (9 columns) */

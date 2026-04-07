@@ -13,3 +13,4 @@ node_modules/
 # Env/keys
 .env
 .env.local
+assets/js/isagip-config.js

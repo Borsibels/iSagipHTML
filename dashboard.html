@@ -126,8 +126,14 @@
               </div>
             </div>
             <div class="stat">
-              <div class="stat-title">Average Response Time</div>
-              <div class="stat-value" id="avg-response">0 min</div>
+              <div class="stat-title stat-title-with-control">
+                <span>Average Response Time</span>
+                <select id="avg-response-unit" class="stat-unit-select" aria-label="Average response time unit">
+                  <option value="minutes" selected>Minutes</option>
+                  <option value="hours">Hours</option>
+                </select>
+              </div>
+              <div class="stat-value" id="avg-response" title="0 min">0 min</div>
             </div>
           </div>
         </section>
@@ -148,6 +154,7 @@
       🔊 Notification sound played
     </div>
 
+    <script src="assets/js/isagip-config.js"></script>
     <!-- Firebase Initialization -->
     <script type="module">
       // Import the functions you need from the SDKs you need
@@ -156,16 +163,11 @@
       import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
       import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-      // Your web app's Firebase configuration
-      const firebaseConfig = {
-        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
-        authDomain: "isagip-752d1.firebaseapp.com",
-        projectId: "isagip-752d1",
-        storageBucket: "isagip-752d1.firebasestorage.app",
-        messagingSenderId: "193473482801",
-        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
-        measurementId: "G-XBKHVXJYB6"
-      };
+      const cfg = window.__ISAGIP_CONFIG__;
+      if (!cfg || !cfg.firebase || !cfg.firebase.apiKey) {
+        console.error('iSagip: Copy assets/js/isagip-config.example.js to assets/js/isagip-config.js and set your keys.');
+      }
+      const firebaseConfig = (cfg && cfg.firebase) ? cfg.firebase : {};
 
       // Initialize Firebase
       const app = initializeApp(firebaseConfig);
@@ -190,8 +192,19 @@
     <script src="assets/js/dashboard.js"></script>
     <!-- Legacy code (will be removed after cleanup) -->
     <script src="assets/js/script.js"></script>
-    <!-- Replace YOUR_API_KEY with your actual key after this change -->
-    <script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMeYxYAoOmqAcEeCCqtyRHHLDT5vvftJQ&libraries=visualization&callback=initISagipMap"></script>
+    <script>
+      (function() {
+        var k = window.__ISAGIP_CONFIG__ && window.__ISAGIP_CONFIG__.googleMapsApiKey;
+        if (!k) {
+          console.error('iSagip: Set googleMapsApiKey in assets/js/isagip-config.js (see isagip-config.example.js).');
+          return;
+        }
+        var s = document.createElement('script');
+        s.defer = true;
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(k) + '&libraries=visualization&callback=initISagipMap';
+        document.head.appendChild(s);
+      })();
+    </script>
     <script>
       // Setup heatmap toggle
       (function() {

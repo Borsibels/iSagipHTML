@@ -76,8 +76,14 @@
               <div class="stat-value" id="r-total">0</div>
             </div>
             <div class="stat">
-              <div class="stat-title">Average Response Time</div>
-              <div class="stat-value" id="r-avg">0 min</div>
+              <div class="stat-title stat-title-with-control">
+                <span>Average Response Time</span>
+                <select id="avg-response-unit" class="stat-unit-select" aria-label="Average response time unit">
+                  <option value="minutes" selected>Minutes</option>
+                  <option value="hours">Hours</option>
+                </select>
+              </div>
+              <div class="stat-value" id="r-avg" title="0 min">0 min</div>
             </div>
             <div class="stat">
               <div class="stat-title">Resolved Cases</div>
@@ -106,10 +112,10 @@
               <div>Actions</div>
               <div>Street</div>
               <div>Landmark</div>
-              <div>Lat</div>
-              <div>Lng</div>
               <div>Photo</div>
               <div>Timestamp</div>
+              <div>Lat</div>
+              <div>Lng</div>
               <div>Resp. Time</div>
               <div>Reported By</div>
               <div>Closed By</div>
@@ -311,6 +317,7 @@
       🔊 Notification sound played
     </div>
 
+    <script src="assets/js/isagip-config.js"></script>
     <!-- Firebase Initialization -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
@@ -318,15 +325,11 @@
       import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
       import { getAuth } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyCVXyhHQ02yBWHHRivG0HfHGnnhzgnviH0",
-        authDomain: "isagip-752d1.firebaseapp.com",
-        projectId: "isagip-752d1",
-        storageBucket: "isagip-752d1.firebasestorage.app",
-        messagingSenderId: "193473482801",
-        appId: "1:193473482801:web:7657006f6fa8d0c11a0510",
-        measurementId: "G-XBKHVXJYB6"
-      };
+      const cfg = window.__ISAGIP_CONFIG__;
+      if (!cfg || !cfg.firebase || !cfg.firebase.apiKey) {
+        console.error('iSagip: Copy assets/js/isagip-config.example.js to assets/js/isagip-config.js and set your keys.');
+      }
+      const firebaseConfig = (cfg && cfg.firebase) ? cfg.firebase : {};
 
       const app = initializeApp(firebaseConfig);
       const analytics = getAnalytics(app);

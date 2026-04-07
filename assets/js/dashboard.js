@@ -13,6 +13,7 @@
     var totalEl = document.getElementById('stat-total-value');
     var badgesEl = document.getElementById('emergency-types-badges');
     var avgEl = document.getElementById('avg-response');
+    var avgUnitSelect = document.getElementById('avg-response-unit');
     var testNotifBtn = document.getElementById('test-notification-btn');
     var notifContainer = document.getElementById('notification-container');
     var filterPeriodEl = document.getElementById('filter-period');
@@ -21,6 +22,28 @@
     var activeReportsListEl = document.getElementById('active-reports-list');
     if (!totalEl && !badgesEl && !avgEl && !activeReportsListEl) return;
 
+    var AVG_UNIT_STORAGE_KEY = 'iSagip_avgResponseUnit';
+
+    function getAvgUnit() {
+      var v = (localStorage.getItem(AVG_UNIT_STORAGE_KEY) || '').toLowerCase();
+      return v === 'hours' ? 'hours' : 'minutes';
+    }
+
+    function formatAvgResponse(minutes, unit) {
+      var safeMinutes = (typeof minutes === 'number' && isFinite(minutes) && minutes >= 0) ? minutes : 0;
+      if (unit === 'hours') {
+        var hrs = safeMinutes / 60;
+        var txt = safeMinutes === 0 ? '0 hr' : (hrs.toFixed(1) + ' hr');
+        return { text: txt, title: safeMinutes + ' min' };
+      }
+      return { text: safeMinutes + ' min', title: (safeMinutes / 60).toFixed(1) + ' hr' };
+    }
+
+    function applyAvgUnitFromStorage() {
+      if (!avgUnitSelect) return;
+      avgUnitSelect.value = getAvgUnit();
+    }
+
     var REALTIME_DB_URL = 'https://isagip-752d1-default-rtdb.asia-southeast1.firebasedatabase.app';
     var databaseModule = null;
     var realtimeDb = null;
@@ -28,6 +51,15 @@
     var rawReports = {};
     var yearsAvailable = [];
     var previousReportIds = new Set(); // Track previous reports to detect new ones
+
+    applyAvgUnitFromStorage();
+    if (avgUnitSelect) {
+      avgUnitSelect.addEventListener('change', function(){
+        var next = (avgUnitSelect.value || '').toLowerCase() === 'hours' ? 'hours' : 'minutes';
+        localStorage.setItem(AVG_UNIT_STORAGE_KEY, next);
+        updateStats();
+      });
+    }
 
     function showToast(message){
       if (!notifContainer) { alert(message); return; }
@@ -340,7 +372,11 @@
       var source = getFilteredReports();
       if (!source.length) {
         if (totalEl) totalEl.textContent = '0';
-        if (avgEl) avgEl.textContent = '0 min';
+        if (avgEl) {
+          var formatted0 = formatAvgResponse(0, getAvgUnit());
+          avgEl.textContent = formatted0.text;
+          avgEl.title = formatted0.title;
+        }
         if (badgesEl) {
           badgesEl.innerHTML = [
             '<span class="badge badge-blue">Medical: 0</span>',
@@ -375,7 +411,11 @@
 
       var minutes = source.map(function(r){ return r.responseMinutes; }).filter(function(n){ return typeof n === 'number'; });
       var avg = minutes.length ? Math.round(minutes.reduce(function(a,b){return a+b;},0) / minutes.length) : 0;
-      if (avgEl) avgEl.textContent = (minutes.length ? (avg+' min') : '0 min');
+      if (avgEl) {
+        var formatted = formatAvgResponse(minutes.length ? avg : 0, getAvgUnit());
+        avgEl.textContent = formatted.text;
+        avgEl.title = formatted.title;
+      }
 
       // Update Active Reports List
       if (activeReportsListEl) {

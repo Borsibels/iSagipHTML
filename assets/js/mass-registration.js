@@ -6,15 +6,12 @@
 (function() {
   'use strict';
 
-  // Initialize EmailJS (you'll need to set your public key)
-  // Get your public key from https://dashboard.emailjs.com/admin/integration
-  // For now, we'll use a placeholder - you need to configure this
-  const EMAILJS_PUBLIC_KEY = 'HdfCtAM1oRBEUuyy9'; // Replace with your EmailJS public key
-  const EMAILJS_SERVICE_ID = 'service_c04v2hd'; // Replace with your EmailJS service ID
-  const EMAILJS_TEMPLATE_ID = 'template_36nko5r'; // Replace with your EmailJS template ID
+  var _ej = (window.__ISAGIP_CONFIG__ && window.__ISAGIP_CONFIG__.emailjs) || {};
+  const EMAILJS_PUBLIC_KEY = _ej.publicKey || 'YOUR_EMAILJS_PUBLIC_KEY';
+  const EMAILJS_SERVICE_ID = _ej.serviceId || '';
+  const EMAILJS_TEMPLATE_ID = _ej.templateMassRegistration || '';
 
-  // Initialize EmailJS if public key is set
-  if (EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY' && typeof emailjs !== 'undefined') {
+  if (EMAILJS_PUBLIC_KEY && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY' && typeof emailjs !== 'undefined') {
     emailjs.init(EMAILJS_PUBLIC_KEY);
   }
 

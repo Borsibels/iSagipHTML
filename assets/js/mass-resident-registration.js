@@ -6,13 +6,12 @@
 (function() {
   'use strict';
 
-  // Initialize EmailJS (you'll need to set your public key)
-  const EMAILJS_PUBLIC_KEY = 'HdfCtAM1oRBEUuyy9'; // Same as staff registration
-  const EMAILJS_SERVICE_ID = 'service_c04v2hd'; // Same as staff registration
-  const EMAILJS_TEMPLATE_ID = 'template_36nko5r'; // Use the same template as staff/responder registration
+  var _ej = (window.__ISAGIP_CONFIG__ && window.__ISAGIP_CONFIG__.emailjs) || {};
+  const EMAILJS_PUBLIC_KEY = _ej.publicKey || 'YOUR_EMAILJS_PUBLIC_KEY';
+  const EMAILJS_SERVICE_ID = _ej.serviceId || '';
+  const EMAILJS_TEMPLATE_ID = _ej.templateMassRegistration || '';
 
-  // Initialize EmailJS if public key is set
-  if (EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY' && typeof emailjs !== 'undefined') {
+  if (EMAILJS_PUBLIC_KEY && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY' && typeof emailjs !== 'undefined') {
     emailjs.init(EMAILJS_PUBLIC_KEY);
   }
 

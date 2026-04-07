@@ -60,12 +60,35 @@
     const reportsTable = document.getElementById('reports-rows');
     if (!reportsTable) return;
 
+    const AVG_UNIT_STORAGE_KEY = 'iSagip_avgResponseUnit';
+    const avgUnitSelect = document.getElementById('avg-response-unit');
+
     const stats = {
       total: document.getElementById('r-total'),
       resolved: document.getElementById('r-resolved'),
       active: document.getElementById('r-active'),
       average: document.getElementById('r-avg'),
     };
+
+    function getAvgUnit() {
+      const v = (localStorage.getItem(AVG_UNIT_STORAGE_KEY) || '').toLowerCase();
+      return v === 'hours' ? 'hours' : 'minutes';
+    }
+
+    function formatAvgResponse(minutes, unit) {
+      const safeMinutes = typeof minutes === 'number' && isFinite(minutes) && minutes >= 0 ? minutes : 0;
+      if (unit === 'hours') {
+        const hrs = safeMinutes / 60;
+        const txt = safeMinutes === 0 ? '0 hr' : `${hrs.toFixed(1)} hr`;
+        return { text: txt, title: `${safeMinutes} min` };
+      }
+      return { text: `${safeMinutes} min`, title: `${(safeMinutes / 60).toFixed(1)} hr` };
+    }
+
+    function applyAvgUnitFromStorage() {
+      if (!avgUnitSelect) return;
+      avgUnitSelect.value = getAvgUnit();
+    }
 
     const detailsModal = document.getElementById('modal-details');
     const detailsContent = document.getElementById('details-content');
@@ -94,6 +117,15 @@
 
     async function init() {
       try {
+        applyAvgUnitFromStorage();
+        if (avgUnitSelect) {
+          avgUnitSelect.addEventListener('change', function () {
+            const next = (avgUnitSelect.value || '').toLowerCase() === 'hours' ? 'hours' : 'minutes';
+            localStorage.setItem(AVG_UNIT_STORAGE_KEY, next);
+            updateStats();
+          });
+        }
+
         await ensureFirebaseReady();
         databaseModule = await import("https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js");
         realtimeDb = databaseModule.getDatabase(window.iSagipApp, REALTIME_DB_URL);
@@ -436,9 +468,9 @@
               </a>`
             : '<span style="color:var(--muted);font-size:12px;">N/A</span>';
           
-          // Add duplicate badge if there are duplicates
+          // Add duplicate badge if there are duplicates (high-contrast for readability)
           const duplicateBadge = isDuplicate 
-            ? `<span class="badge badge-orange" style="margin-left:8px;background:#f97316;color:white;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;" title="${group.count} people reported this incident">${group.count}x</span>`
+            ? `<span class="duplicate-badge" title="${group.count} people reported this incident">${group.count}x</span>`
             : '';
           
           const reportersList = isDuplicate && group.reporters.length > 1
@@ -477,10 +509,10 @@
               <div>${actionButtons}</div>
               <div>${escapeHtml(report.street)}</div>
               <div>${escapeHtml(report.landmark)}</div>
-              <div>${report.latitude != null ? report.latitude.toFixed(6) : '—'}</div>
-              <div>${report.longitude != null ? report.longitude.toFixed(6) : '—'}</div>
               <div>${photoCell}</div>
               <div>${report.timestamp}</div>
+              <div>${report.latitude != null ? report.latitude.toFixed(6) : '—'}</div>
+              <div>${report.longitude != null ? report.longitude.toFixed(6) : '—'}</div>
               <div>${report.responseTime || '—'}</div>
               <div>${escapeHtml(report.reportedBy)}</div>
               <div>${escapeHtml(report.closedBy || '—')}</div>
@@ -541,7 +573,12 @@
       if (stats.total) stats.total.textContent = total;
       if (stats.resolved) stats.resolved.textContent = resolved;
       if (stats.active) stats.active.textContent = active;
-      if (stats.average) stats.average.textContent = responseValues.length > 0 ? `${average} min` : '0 min';
+      if (stats.average) {
+        const unit = getAvgUnit();
+        const formatted = formatAvgResponse(responseValues.length > 0 ? average : 0, unit);
+        stats.average.textContent = formatted.text;
+        stats.average.title = formatted.title;
+      }
     }
 
 
